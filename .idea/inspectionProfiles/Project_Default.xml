@@ -1,0 +1,47 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="34">
+            <item index="0" class="java.lang.String" itemvalue="imagecorruptions" />
+            <item index="1" class="java.lang.String" itemvalue="emoji" />
+            <item index="2" class="java.lang.String" itemvalue="scikit-learn" />
+            <item index="3" class="java.lang.String" itemvalue="cython" />
+            <item index="4" class="java.lang.String" itemvalue="fairscale" />
+            <item index="5" class="java.lang.String" itemvalue="cityscapesscripts" />
+            <item index="6" class="java.lang.String" itemvalue="pywin32" />
+            <item index="7" class="java.lang.String" itemvalue="protobuf" />
+            <item index="8" class="java.lang.String" itemvalue="python-docx" />
+            <item index="9" class="java.lang.String" itemvalue="jieba" />
+            <item index="10" class="java.lang.String" itemvalue="python-Levenshtein" />
+            <item index="11" class="java.lang.String" itemvalue="lz4" />
+            <item index="12" class="java.lang.String" itemvalue="google" />
+            <item index="13" class="java.lang.String" itemvalue="requests" />
+            <item index="14" class="java.lang.String" itemvalue="docxcompose" />
+            <item index="15" class="java.lang.String" itemvalue="pyaudio" />
+            <item index="16" class="java.lang.String" itemvalue="pilk" />
+            <item index="17" class="java.lang.String" itemvalue="pymem" />
+            <item index="18" class="java.lang.String" itemvalue="psutil" />
+            <item index="19" class="java.lang.String" itemvalue="PyQt5" />
+            <item index="20" class="java.lang.String" itemvalue="pycryptodomex" />
+            <item index="21" class="java.lang.String" itemvalue="soupsieve" />
+            <item index="22" class="java.lang.String" itemvalue="silk-python" />
+            <item index="23" class="java.lang.String" itemvalue="pyecharts" />
+            <item index="24" class="java.lang.String" itemvalue="flask" />
+            <item index="25" class="java.lang.String" itemvalue="fuzzywuzzy" />
+            <item index="26" class="java.lang.String" itemvalue="tensorboard" />
+            <item index="27" class="java.lang.String" itemvalue="onnx-simplifier" />
+            <item index="28" class="java.lang.String" itemvalue="albumentations" />
+            <item index="29" class="java.lang.String" itemvalue="einops" />
+            <item index="30" class="java.lang.String" itemvalue="efficientnet-pytorch" />
+            <item index="31" class="java.lang.String" itemvalue="torch" />
+            <item index="32" class="java.lang.String" itemvalue="numpy" />
+            <item index="33" class="java.lang.String" itemvalue="pycocotools" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

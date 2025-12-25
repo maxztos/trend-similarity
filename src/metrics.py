@@ -35,6 +35,9 @@ def dtw_similarity(a, b, alpha):
     dist, _ = fastdtw(a, b)
     return exp(-dist / alpha)
 
+def amplitude_similarity(a, b):
+    return 1 - abs(np.std(a) - np.std(b)) / max(np.std(a), np.std(b))
+
 def final_similarity_score(a, b):
     a = np.asarray(a, dtype=np.float32)
     b = np.asarray(b, dtype=np.float32)
@@ -42,6 +45,7 @@ def final_similarity_score(a, b):
     cos = max(0.0, cosine_similarity(a, b))
     pear = pearson_similarity(a, b)
     dtw = dtw_similarity(a, b, alpha=0.3 * len(a))
+    amplitude = amplitude_similarity(a, b)
 
-    score = 0.4 * cos + 0.4 * pear + 0.2 * dtw
+    score = 0.3 * cos + 0.3 * pear + 0.2 * dtw + 0.2 * amplitude
     return round(score * 100, 2)

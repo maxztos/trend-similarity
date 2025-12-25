@@ -62,7 +62,7 @@ def score_from_raw_excel(
     df_out = pd.DataFrame(rows)
     df_out = df_out.sort_values(
         by=["match_id1", "calibrated_score"],
-        ascending=[True, False]
+        ascending=[False, False]
     )
 
     df_out.to_excel(output_excel, index=False)
@@ -72,7 +72,7 @@ def score_from_raw_excel(
 
 if __name__ == "__main__":
     input_excel = "data/2.xlsx"
-    output_excel = "data/enterprise_scored.xlsx"
+    output_excel = "data/final_scored.xlsx"
     model_path = "data/similarity_calibrator.joblib"
 
     score_from_raw_excel(

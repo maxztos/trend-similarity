@@ -1,126 +1,156 @@
-import matplotlib.pyplot as plt
 import numpy as np
-import cv2
+import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
+from matplotlib.collections import LineCollection
 
-from src.preprocess import extract_series_from_image, extract_bar_series
+from src.dataloader import load_match_groups
 
+# 绘制一个序列的图形
+def plot_series_bar(series, title=None):
+    series = np.asarray(series)
+    x = np.arange(len(series))
 
-def plot_main_vs_sub(main_series, sub_series, score=None, title=None):
-    main_series = np.asarray(main_series)
-    sub_series = np.asarray(sub_series)
+    colors = np.where(series >= 0, "green", "orange")
 
-    x = np.arange(len(main_series))
+    plt.bar(
+        x,
+        series,
+        color=colors,
+        width=0.9,
+        alpha=0.75,
+        zorder=1
+    )
 
-    plt.figure(figsize=(12, 5))
-
-    plt.plot(x, main_series, label="Main", linewidth=2)
-    plt.plot(x, sub_series, label="Sub", linewidth=2, linestyle="--")
-
-    plt.axhline(0, linestyle=":", linewidth=1)
-
-    plt.xlabel("Bin Index")
+    plt.axhline(0, color="black", linewidth=1)
+    plt.ylim(-100, 100)
+    plt.xlabel("Index")
     plt.ylabel("Value")
 
     if title:
         plt.title(title)
-    elif score is not None:
-        plt.title(f"Main vs Sub (Similarity Score = {score})")
-    else:
-        plt.title("Main vs Sub Comparison")
 
-    plt.legend()
-    plt.grid(alpha=0.3)
-
-    plt.tight_layout()
-    plt.show()
-
-def plot_difference(main_series, sub_series):
-    diff = main_series - sub_series
-    x = np.arange(len(diff))
-
-    plt.figure(figsize=(12, 3))
-    plt.bar(x, diff)
-    plt.axhline(0, linestyle=":")
-    plt.title("Difference (Main - Sub)")
-    plt.xlabel("Bin Index")
-    plt.ylabel("Diff")
-    plt.tight_layout()
-    plt.show()
-
-def draw_series_on_image(
-    img_path,
+# 生成轮廓线
+def extract_signed_area_contour(
     series,
-    meta,
-    color=(0, 0, 255),
-    thickness=2
+    window=15,   # 人眼感知宽度（10~20 推荐）
+    smooth=5,    # 视觉平滑（必须奇数）
+    poly=2
 ):
-    # 1️⃣ 读图
-    img = cv2.imread(img_path)
-    assert img is not None, f"Cannot read image: {img_path}"
+    """
+    返回一条：代表局部柱状“整体面积感”的轮廓线
+    """
+    series = np.asarray(series)
+    n = len(series)
 
-    # 2️⃣ resize（必须和 extractor 一致）
-    img = cv2.resize(img, (meta["width"], meta["height"]))
+    half = window // 2
+    contour = np.zeros(n)
 
-    h, w = meta["height"], meta["width"]
-    bins = meta["bins"]
+    for i in range(n):
+        l = max(0, i - half)
+        r = min(n, i + half + 1)
+        seg = series[l:r]
 
-    x_ignore = meta["x_ignore"]
-    y_top = meta["y_top"]
-    y_zero = meta["y_zero"]
-    y_bottom = meta["y_bottom"]
+        # 🔥 带符号面积（人眼判断核心）
+        contour[i] = np.sum(seg) / len(seg)
 
-    usable_width = w - x_ignore
-    bin_width = usable_width / bins
-    pixels_per_unit = (y_bottom - y_top) / 200
+    # 仅用于视觉连续，不改变语义
+    if smooth >= 5 and smooth < n:
+        contour = savgol_filter(contour, smooth, poly)
 
-    # 3️⃣ 计算曲线点
-    points = []
-    for i, v in enumerate(series):
-        x = int(x_ignore + (i + 0.5) * bin_width)
-        y = int(y_zero - v * pixels_per_unit)
-        points.append((x, y))
+    return contour
 
-    # 4️⃣ 画曲线
-    for i in range(len(points) - 1):
-        cv2.line(img, points[i], points[i + 1], color, thickness)
+def plot_signed_contour(contour):
+    x = np.arange(len(contour))
 
-    # 5️⃣ 辅助线（可选）
-    cv2.line(img, (0, y_zero), (w, y_zero), (0, 255, 0), 1)
+    # 构造连续线段
+    points = np.array([x, contour]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-    # ✅ 6️⃣ 一定要 return
-    return img
+    # 按线段中点的正负决定颜色
+    colors = [
+        "red" if (contour[i] + contour[i + 1]) / 2 >= 0 else "blue"
+        for i in range(len(contour) - 1)
+    ]
 
-def rescale_amplitude(series, target_min=-70, target_max=70):
-    s = np.asarray(series, dtype=np.float32)
-
-    s_min, s_max = s.min(), s.max()
-    if s_max - s_min < 1e-6:
-        return s
-
-    s_norm = (s - s_min) / (s_max - s_min)
-    return s_norm * (target_max - target_min) + target_min
-
-if __name__ == '__main__':
-
-    main_img = "D:/CProject/ImageProcessing/Trend-similarity/data/sample2/fig1.png"
-    sub_img = "D:/CProject/ImageProcessing/Trend-similarity/data/sample2/fig1.png"
-    main_series = extract_series_from_image(main_img)
-    sub_series = extract_series_from_image(sub_img)
-
-    series, meta = extract_bar_series(main_img, bins=60)
-    series = rescale_amplitude(series)
-    print("Extracted series length:", len(series))
-    print("Meta info:", meta)
-
-    # 3️⃣ 画回原图
-    img_overlay = draw_series_on_image(
-        main_img,
-        series,
-        meta,
-        color=(0, 0, 255)  # 红色
+    lc = LineCollection(
+        segments,
+        colors=colors,
+        linewidths=3,
+        alpha=0.95,
+        zorder=3
     )
 
-    # 4️⃣ 显示
-    cv2.imshow("Overlay Result", img_overlay)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    plt.gca().add_collection(lc)
+
+def visualize_series_with_signed_contour(
+    series,
+    title=None,
+    window=15
+):
+    plt.figure(figsize=(14, 4))
+
+    # 原始柱状
+    plot_series_bar(series, title=title)
+
+    # 面积轮廓线
+    contour = extract_signed_area_contour(
+        series,
+        window=window
+    )
+    plot_signed_contour(contour)
+
+    plt.tight_layout()
+    plt.show()
+
+def visualize_match_with_signed_contour(
+    match_data,
+    window=15
+):
+    main = match_data["main"]
+    subs = match_data["subs"]
+
+    total = 1 + len(subs)
+    plt.figure(figsize=(14, 3 * total))
+
+    # ===== 主图 =====
+    plt.subplot(total, 1, 1)
+    plot_series_bar(
+        main["series"],
+        title=f"MAIN: {main['id']}"
+    )
+
+    contour = extract_signed_area_contour(
+        main["series"],
+        window=window
+    )
+    plot_signed_contour(contour)
+
+    # ===== 子图 =====
+    for i, sub in enumerate(subs, start=2):
+        plt.subplot(total, 1, i)
+
+        plot_series_bar(
+            sub["series"],
+            title=f"SUB: {sub['id']}  |  score={sub.get('score', 'N/A')}"
+        )
+
+        contour = extract_signed_area_contour(
+            sub["series"],
+            window=window
+        )
+        plot_signed_contour(contour)
+
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == '__main__':
+    excel_path = "../data/2.xlsx"
+    data = load_match_groups(excel_path)
+
+    match_id = "2025/05/05-2783VS51-60"
+    visualize_match_with_signed_contour(
+        data[match_id],
+        window=3
+    )
+

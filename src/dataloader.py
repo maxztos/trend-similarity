@@ -4,7 +4,6 @@ import ast
 from collections import defaultdict
 
 from src.metrics import *
-
 """
 解析xlsx数据
 需要分析的数据结构
@@ -30,6 +29,11 @@ def parse_s6(s):
         return np.array(s, dtype=np.float32)
     return np.array(ast.literal_eval(s), dtype=np.float32)
 
+"""
+describe:提取Excel中的数据，封装成group变量
+输入：Excel文件路径
+输出：提取的Excel数据
+"""
 def load_match_groups(excel_path):
     df = pd.read_excel(excel_path)
 
@@ -62,10 +66,14 @@ def normalize_length(series, target_len):
     x_new = np.linspace(0, 1, target_len)
     return np.interp(x_new, x_old, series)
 
+
+
+
 if __name__ == '__main__':
 
     excel_path = "../data/2.xlsx"
     groups = load_match_groups(excel_path)
+    print(groups)
     for match_id, group in groups.items():
         main = group["main"]
         subs = group["subs"]

@@ -1,5 +1,4 @@
 # 综合评估/打分
-from src.metrics import final_similarity_score
 
 """
 | 分数     | 含义         |
@@ -12,10 +11,3 @@ from src.metrics import final_similarity_score
 
 """
 
-#
-def compare_main_vs_many(main, others):
-    results = []
-    for k, s in others.items():
-        score = final_similarity_score(main, s)
-        results.append((k, score))
-    return sorted(results, key=lambda x: x[1], reverse=True)

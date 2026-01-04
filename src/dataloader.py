@@ -3,7 +3,6 @@ import numpy as np
 import ast
 from collections import defaultdict
 
-from src.metrics import *
 """
 解析xlsx数据
 需要分析的数据结构
@@ -74,25 +73,5 @@ if __name__ == '__main__':
     excel_path = "../data/2.xlsx"
     groups = load_match_groups(excel_path)
     print(groups)
-    for match_id, group in groups.items():
-        main = group["main"]
-        subs = group["subs"]
-        target_len = len(main["series"])
-        main_series = main["series"]
-        print(f"\nMatch Group: {match_id}")
-        print(f"Main ID: {main['id']}")
-        results = []
-        for sub in subs:
-            sub_series = normalize_length(sub["series"], target_len)
-            score = final_similarity_score(
-                main_series, sub_series
-            )
-            results.append((sub["id"], score))
-
-        results.sort(key=lambda x: x[1], reverse=True)
-
-        for sid, score in results:
-            print(f"  Sub {sid}: {score}")
-
 
 

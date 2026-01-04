@@ -4,6 +4,8 @@ from scipy.signal import savgol_filter
 from matplotlib.collections import LineCollection
 
 from src.dataloader import load_match_groups
+from src.trend_segmentation import contour_to_variable_trends
+
 
 # 绘制一个序列的图形
 def plot_series_bar(series, title=None):
@@ -82,6 +84,46 @@ def plot_signed_contour(contour):
 
     plt.gca().add_collection(lc)
 
+def plot_series_with_contour(
+    series,
+    window=3,
+    title=None
+):
+    series = np.asarray(series)
+    x = np.arange(len(series))
+
+    colors = np.where(series >= 0, "green", "orange")
+    plt.bar(x, series, color=colors, alpha=0.6)
+    plt.axhline(0, color="black", linewidth=1)
+
+    contour = extract_signed_area_contour(series, window=window)
+    cx = np.linspace(0, len(series) - 1, len(contour))
+    plt.plot(cx, contour, color="blue", linewidth=2)
+
+    if title:
+        plt.title(title)
+
+    return contour
+# 把趋势列表画到图上
+def annotate_trend_sequence(
+    trends,
+    prefix="trend"
+):
+    """
+    在当前 subplot 底部添加趋势文本，如:
+    trend: [+, 0, -, +]
+    """
+    text = f"{prefix}: [{', '.join(trends)}]"
+
+    plt.gca().text(
+        0.5, -0.25,          # ⬅️ 关键：轴坐标（居中、在下方）
+        text,
+        ha="center",
+        va="top",
+        fontsize=12,
+        transform=plt.gca().transAxes
+    )
+
 def visualize_series_with_signed_contour(
     series,
     title=None,
@@ -104,7 +146,8 @@ def visualize_series_with_signed_contour(
 
 def visualize_match_with_signed_contour(
     match_data,
-    window=15
+    window=3,
+    trend_window=8
 ):
     main = match_data["main"]
     subs = match_data["subs"]
@@ -114,31 +157,36 @@ def visualize_match_with_signed_contour(
 
     # ===== 主图 =====
     plt.subplot(total, 1, 1)
-    plot_series_bar(
+    main_contour = plot_series_with_contour(
         main["series"],
+        window=window,
         title=f"MAIN: {main['id']}"
     )
 
-    contour = extract_signed_area_contour(
-        main["series"],
-        window=window
+    main_trend = contour_to_variable_trends(
+        main_contour,
+        window_size=trend_window,
     )
-    plot_signed_contour(contour)
+    main["trend_seq"] = main_trend
+
+    annotate_trend_sequence(main_trend)
 
     # ===== 子图 =====
     for i, sub in enumerate(subs, start=2):
         plt.subplot(total, 1, i)
-
-        plot_series_bar(
+        sub_contour = plot_series_with_contour(
             sub["series"],
-            title=f"SUB: {sub['id']}  |  score={sub.get('score', 'N/A')}"
+            window=window,
+            title=f"SUB: {sub['id']}"
         )
 
-        contour = extract_signed_area_contour(
-            sub["series"],
-            window=window
+        sub_trend = contour_to_variable_trends(
+            sub_contour,
+            window_size=trend_window,
         )
-        plot_signed_contour(contour)
+        sub["trend_seq"] = sub_trend
+
+        annotate_trend_sequence(sub_trend)
 
     plt.tight_layout()
     plt.show()

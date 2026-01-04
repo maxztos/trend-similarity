@@ -22,37 +22,73 @@ def contour_similarity_l1(a, b, eps=1e-6):
     sim = 1.0 - diff / (scale + eps)
     return float(np.clip(sim, 0.0, 1.0))
 
+def split_contour_by_energy(contour, ratio=0.5, min_len=5):
+    """
+    根据轮廓“绝对面积能量”自适应切分前/后段
+
+    ratio   : 后段起始所占累计能量比例（0.5 = 后半能量）
+    min_len : 防止切分过短
+    """
+    contour = np.asarray(contour, dtype=float)
+    n = len(contour)
+
+    if n < min_len * 2:
+        return contour, np.array([])
+
+    energy = np.abs(contour)
+    total_energy = energy.sum()
+
+    if total_energy < 1e-6:
+        split_idx = n // 2
+    else:
+        cum_energy = np.cumsum(energy)
+        split_idx = int(np.searchsorted(cum_energy, total_energy * ratio))
+
+    # 安全保护
+    split_idx = max(min_len, min(split_idx, n - min_len))
+
+    return contour[:split_idx], contour[split_idx:]
 def split_weighted_contour_similarity(
     main_contour,
     sub_contour,
-    split_ratio=0.5,
+    energy_ratio=0.5,
     w_front=0.3,
     w_back=0.7
 ):
-    # 对齐长度
+    # 1️⃣ 对齐长度
     target_len = max(len(main_contour), len(sub_contour))
     main = resample_contour(main_contour, target_len)
     sub = resample_contour(sub_contour, target_len)
 
-    split_idx = int(target_len * split_ratio)
-
-    sim_front = contour_similarity_l1(
-        main[:split_idx],
-        sub[:split_idx]
+    # 2️⃣ 能量自适应切分
+    main_front, main_back = split_contour_by_energy(
+        main, ratio=energy_ratio
+    )
+    sub_front, sub_back = split_contour_by_energy(
+        sub, ratio=energy_ratio
     )
 
-    sim_back = contour_similarity_l1(
-        main[split_idx:],
-        sub[split_idx:]
+    # 3️⃣ 相似度计算（安全兜底）
+    sim_front = (
+        contour_similarity_l1(main_front, sub_front)
+        if len(main_front) > 0 and len(sub_front) > 0
+        else 0.0
+    )
+
+    sim_back = (
+        contour_similarity_l1(main_back, sub_back)
+        if len(main_back) > 0 and len(sub_back) > 0
+        else 0.0
     )
 
     score = w_front * sim_front + w_back * sim_back
 
     return {
-        "sim_front": sim_front,
-        "sim_back": sim_back,
-        "score": score
+        "sim_front": float(sim_front),
+        "sim_back": float(sim_back),
+        "score": float(score)
     }
+
 
 def score_matches_by_contour(
     matches,
@@ -79,8 +115,7 @@ def score_matches_by_contour(
 
             result = split_weighted_contour_similarity(
                 main_contour,
-                sub_contour,
-                split_ratio=split_ratio
+                sub_contour
             )
 
             sub["contour"] = sub_contour

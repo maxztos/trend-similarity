@@ -3,7 +3,16 @@ import pandas as pd
 
 from src.dataloader import load_match_groups
 from src.show import extract_signed_area_contour, visualize_match_with_signed_contour
+from src.trend_segmentation import contour_to_variable_trends, contour_to_trend_segments, segments_to_timeline, \
+    trend_similarity_pipeline
 
+
+def trend_match_score(a, b):
+    if a == b:
+        return 1.0
+    if '0' in (a, b):
+        return 0.5
+    return 0.0
 
 def contour_similarity_l1(a, b, eps=1e-6):
     a = np.asarray(a)
@@ -89,7 +98,111 @@ def split_weighted_contour_similarity(
         "score": float(score)
     }
 
+def backward_trend_similarity(
+    main_trend,
+    sub_trend,
+    max_compare=None,
+    decay=0.9
+):
+    """
+    从后向前进行趋势匹配
+    - 不改变原始趋势长度
+    - 越靠后权重越大
+    """
+    i = len(main_trend) - 1
+    j = len(sub_trend) - 1
 
+    scores = []
+    weights = []
+
+    w = 1.0
+
+    while i >= 0 and j >= 0:
+        score = trend_match_score(main_trend[i], sub_trend[j])
+        scores.append(score)
+        weights.append(w)
+
+        w *= decay
+        i -= 1
+        j -= 1
+
+        if max_compare and len(scores) >= max_compare:
+            break
+
+    if not scores:
+        return 0.0
+
+    weighted_score = sum(s * w for s, w in zip(scores, weights)) / sum(weights)
+    return float(weighted_score)
+
+def score_matches_by_trend_topk(
+    data: dict,
+    window: int = 3,
+    eps: float = 1e-3,
+    topk: int = 5,
+    decay: float = 0.9,
+    max_compare: int | None = None
+):
+    """
+    对 data 中每个 match：
+    - 计算 main / sub 的趋势序列
+    - 使用后向趋势匹配打分
+    - 返回 topk 的 subs
+    """
+
+    results = {}
+
+    for match_id1, match_data in data.items():
+        main = match_data["main"]
+        subs = match_data.get("subs", [])
+
+        # 1️⃣ main 趋势
+        main_contour = extract_signed_area_contour(
+            main["series"],
+            window=window
+        )
+        main_trend = contour_to_variable_trends(
+            main_contour,
+            # eps=eps
+        )
+
+        scored_subs = []
+
+        for sub in subs:
+            # 2️⃣ sub 趋势
+            sub_contour = extract_signed_area_contour(
+                sub["series"],
+                window=window
+            )
+            sub_trend = contour_to_variable_trends(
+                sub_contour,
+                # eps=eps
+            )
+
+            # 3️⃣ 后向趋势匹配评分（重点看后半段）
+            score = backward_trend_similarity(
+                main_trend,
+                sub_trend,
+                decay=decay,
+                max_compare=max_compare
+            )
+
+            scored_subs.append({
+                "id": sub["id"],
+                "score": float(score),
+                "trend": sub_trend
+            })
+
+        # 4️⃣ 按分数排序取 TopK
+        scored_subs.sort(key=lambda x: x["score"], reverse=True)
+
+        results[match_id1] = {
+            "main_id": main["id"],
+            "main_trend": main_trend,
+            "top_subs": scored_subs[:topk]
+        }
+
+    return results
 def score_matches_by_contour(
     matches,
     window=15,
@@ -199,7 +312,21 @@ def export_contour_scores_to_excel(
 
     return df
 
+def print_top5_results(results):
+    for match_id, info in results.items():
+        print("=" * 80)
+        print(f"MAIN MATCH: {match_id}")
+        print(f"MAIN ID   : {info['main_id']}")
+        # print(f"MAIN TREND: {info['main_trend']}")
+        print("-" * 80)
 
+        for i, sub in enumerate(info["top_subs"], start=1):
+            print(
+                f"{i:>2}. sub_id={sub['id']} | "
+                f"score={sub['score']:.4f} | "
+                # f"trend={sub['trend']}"
+            )
+        print()
 
 # if __name__ == '__main__':
 #     excel_path = "../data/2.xlsx"
@@ -214,19 +341,68 @@ def export_contour_scores_to_excel(
 #         w_back=0.7
 #     )
 
+def score_matches_by_segments(
+    data: dict,
+    window: int = 3,
+    topk: int = 5,
+):
+    """
+    对data中每个match:
+    提取轮廓-序列化趋势-匹配打分
+    :param data:
+    :param topk:
+    :return:
+    """
+    result = {}
+    for match_id, match_data in data.items():
+        main = match_data["main"]
+        subs = match_data.get("subs", [])
+        # main趋势
+        main_contour = extract_signed_area_contour(
+            main["series"],
+            window=window
+        )
+        main_seg = contour_to_trend_segments(main_contour)
+
+
+        # print(segments_to_timeline(contour_to_trend_segments(main_contour),60))
+
+        scored_subs = []
+        for sub in subs:
+            sub_contour = extract_signed_area_contour(
+                sub["series"],
+                window=window
+            )
+            sub_seg = contour_to_trend_segments(sub_contour)
+            # print(segments_to_timeline(contour_to_trend_segments(sub_contour),60))
+
+            score = trend_similarity_pipeline(main_seg, sub_seg)
+
+            scored_subs.append({
+                "id": sub["id"],
+                "score": float(score)
+            })
+            scored_subs.sort(key=lambda x: x["score"], reverse=True)
+
+            result[match_id] = {
+                "main_id": main["id"],
+                "top_subs": scored_subs[:topk],
+            }
+    return result
+
+
 if __name__ == "__main__":
     excel_path = "../data/2.xlsx"
     data = load_match_groups(excel_path)
 
-    data = score_matches_by_contour(
+    top5_results = score_matches_by_trend_topk(
         data,
-        window=3
+        window=3,
+        topk=5
     )
-
-    sort_subs_by_score(data)
-
-    match_id = "2025/05/18-55VS53-60"
-    visualize_match_with_signed_contour(
-        data[match_id],
-        window=3
-    )
+    result = score_matches_by_segments(data)
+    print_top5_results(result)
+    # 看某一场
+    # match_id = "2025/05/05-2783VS51-60"
+    # print_topk_results_compatible(top5_results)
+    # print_top5_results(top5_results)

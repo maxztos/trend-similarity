@@ -35,7 +35,7 @@ def plot_series_bar(series, title=None):
 # 生成轮廓线
 def extract_signed_area_contour(
     series,
-    window=12,   # 人眼感知宽度（10~20 推荐）
+    window=3,   # 人眼感知宽度（10~20 推荐）
     smooth=7,    # 视觉平滑（必须奇数）
     poly=3  # 决定轮廓“弯不弯”
 ):
@@ -263,7 +263,7 @@ if __name__ == '__main__':
     excel_path = "../data/2.xlsx"
     data = load_match_groups(excel_path)
 
-    match_id = "2025/05/18-55VS53-60"
+    match_id = "2025/05/18-29VS174-60"
     print(data[match_id])
     # contour = contour_to_variable_trends
     visualize_match_with_signed_contour(

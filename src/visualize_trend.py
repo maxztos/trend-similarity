@@ -156,8 +156,16 @@ if __name__ == '__main__':
     data = load_match_groups(excel_path)
 
 
-    match_id = "2025/05/18-55VS53-60"
-    print(data[match_id])
+    match_id = "2025/05/18-29VS174-60"
+    match_data = data[match_id]
+    main = match_data["main"]
+    subs = match_data["subs"]
+    sub1 = subs[-1]
+    sub2 = subs[-2]
+    # print(match_data["2022/10/09-41VS796"])
+    # print(main)
+    # print(sub1)
+    # print(sub2)
     # contour = contour_to_variable_trends
     visualize_match_trend_segments(
         data[match_id],

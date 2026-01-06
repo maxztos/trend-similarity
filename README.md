@@ -15,27 +15,47 @@ Excel 表格包含以下字段：
 | match_id2 | 每条曲线的唯一 ID                                     |
 | s6        | 柱状图对应的一维数值序列（如 `[0, 1, 40, -20, ...]`） |
 
-## 2. 系统整体流程
+## 2. 系统接口说明
+
+数据处理
+
+```python
+load_match_groups(excel_path)
+输出：
+{
+  match_id1: {
+    "main": {
+        "id": match_id2,
+        "series": np.ndarray
+    },
+    "subs": [
+        {
+            "id": match_id2,
+            "series": np.ndarray
+        },
+        ...
+    ]
+  },
+  match_id2: {}
+}
+```
+
+轮廓趋势
 
 ```
-企业原始 Excel
-      ↓
-数据解析（load_match_groups）
-      ↓
-主 / 副序列配对
-      ↓
-基础相似度特征计算
-  - cosine
-  - pearson
-  - dtw
-  - amplitude
-      ↓
-校准模型（逻辑回归）
-      ↓
-calibrated_score
-      ↓
-按 match_id1 排序输出结果
+extract_signed_area_contour(series,window=3)		输出:contour
+contour_to_trend_segments(contour)			
+输出:
+segments:[
+      {"trend": "+", "start": 0, "end": 18, "value": 12.3},
+      {"trend": "-", "start": 18, "end": 39, "value": -8.7},
+      {"trend": "+", "start": 39, "end": 52, "value": 21.5},
+    ]
+segments_to_timeline(segments) 
+输出一个数组
 ```
+
+
 
 ## 3. 项目结构说明
 

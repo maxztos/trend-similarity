@@ -31,22 +31,33 @@ def window_trend(
     return "+" if pos_ratio > neg_ratio else "-"
 
 # segment → 趋势时间轴
-def segments_to_timeline(segments, total_len = 60):
+def segments_to_timeline(segments):
     """
-    segments: [{'trend': '+', 'start': i, 'end': j}, ...]
-    total_len: 时间轴总长度
+    segments:
+    [
+      {"trend": "+", "start": 3, "end": 50, "value": 12.3},
+      {"trend": "-", "start": 50, "end": 55, "value": -8.7},
+      {"trend": "+", "start": 55, "end": 60, "value": 21.5},
+    ]
+
+    return:
+      timeline: np.ndarray
+      offset: 原始时间起点（segments[0]["start"]）
     """
-    timeline = np.zeros(total_len, dtype=int)
+
+    if not segments:
+        return np.array([]), 0
+
+    start0 = segments[0]["start"]
+    endN = segments[-1]["end"]
+    total_len = endN - start0
+
+    timeline = np.zeros(total_len, dtype=float)
 
     for seg in segments:
-        v = 1 if seg["trend"] == "+" else -1
-        timeline[seg["start"]:seg["end"]] = v
-    # 补充后面数据
-    last_seg = segments[-1]
-    last_end = last_seg["end"]
-    if last_end < total_len:
-        last_v = 1 if last_seg["trend"] == "+" else -1
-        timeline[last_end:total_len] = last_v
+        s = seg["start"] - start0
+        e = seg["end"] - start0
+        timeline[s:e] = seg["value"]
 
     return timeline
 # 权重函数
@@ -302,7 +313,7 @@ if __name__ == '__main__':
     excel_path = "../data/2.xlsx"
     data = load_match_groups(excel_path)
 
-    match_id = "2025/05/18-29VS174-60"
+    match_id = "2025/05/05-2783VS51-60"
     # print(data[match_id])
 
     # contour = extract_signed_area_contour(series, window=5)

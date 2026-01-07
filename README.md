@@ -122,3 +122,13 @@ python run_score_from_raw_excel.py
 ```
 data/enterprise_scored.xlsx
 ```
+
+
+
+| 方法                 | 问题               |
+| -------------------- | ------------------ |
+| 趋势符号序列 (+ - 0) | 信息损失太大       |
+| segment + IoU        | 边界极其敏感       |
+| timeline 滑动        | 人工对齐规则过多   |
+| 容忍 mIoU            | 还是在补丁式修规则 |
+| **DTW(contour)**     | ✅ 自动处理一切     |

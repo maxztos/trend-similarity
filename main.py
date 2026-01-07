@@ -2,6 +2,7 @@ import numpy as np
 
 from src.contour_match import get_contour, calculate_dtw_distance
 from src.dataloader import load_match_groups
+from src.timeline_match import get_timelines
 
 if __name__ == '__main__':
     # Excel文件路径
@@ -22,8 +23,10 @@ if __name__ == '__main__':
             match_data = data[match_id]
             # 获取轮廓数据（主序列+子序列）
             contour_data = get_contour(match_data)
+            # contour_data = get_timelines(match_data)
             # print(contour_data)
             main_con = contour_data["main"]["contour"]
+            # main_con = contour_data["main"]["timeline"]
 
             # 存储当前match_id下所有子序列的DTW结果
             sub_results = []
@@ -49,7 +52,7 @@ if __name__ == '__main__':
 
             # 4. 找到当前match_id的最小DTW距离结果
             if sub_results:  # 确保有子序列数据
-                min_result = min(sub_results, key=lambda x: x["distance"])
+                min_result = min(sub_results, key=lambda x: x["norm_distance"])
                 # 补充match_id信息，方便溯源
                 min_result["match_id"] = match_id
                 all_min_results.append(min_result)
@@ -58,8 +61,8 @@ if __name__ == '__main__':
                 print(f"=====================================")
                 print(f"主数据ID: {match_id}")
                 print(f"最优副数据ID: {min_result['sub_id']}")
-                print(f"最小DTW距离: {min_result['distance']:.2f}")
-                print(f"最小归一化DTW距离: {min_result['norm_distance']:.4f}")
+                # print(f"最小DTW距离: {min_result['distance']:.2f}")
+                # print(f"最小归一化DTW距离: {min_result['norm_distance']:.4f}")
             else:
                 # 无有效子序列的情况
                 print(f"=====================================")

@@ -36,10 +36,10 @@ def calculate_trend_similarity(main_arr, sub_arr):
     final_score = 0.7 * sign_accuracy + 0.3 * correlation
     return final_score
 
-def get_timelines(match_id, window=3):
-    excel_path = "../data/2.xlsx"
-    data = load_match_groups(excel_path)
-    match_data = data[match_id]
+def get_timelines(match_data , window=3):
+    # excel_path = "../data/2.xlsx"
+    # data = load_match_groups(excel_path)
+    # match_data = data[match_id]
 
     # ===== Main =====
     main = match_data["main"]

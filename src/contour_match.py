@@ -1,5 +1,5 @@
 import numpy as np
-
+from fastdtw import fastdtw
 from src.dataloader import load_match_groups
 from src.show import extract_signed_area_contour
 from src.trend_segmentation import contour_to_trend_segments
@@ -38,6 +38,7 @@ def get_contour(match_data, window=3):
         },
         "subs": subs_output
     }
+# DTW 可以灵活拉伸 / 压缩其中一个序列
 def calculate_dtw_distance(s1, s2):
     """
     计算两个序列之间的 DTW 距离
@@ -130,7 +131,7 @@ if __name__ == '__main__':
         })
 
     # 3. 按距离从小到大排序（最相似的在前）
-    results.sort(key=lambda x: x["distance"])
+    results.sort(key=lambda x: x["norm_distance"])
 
     # 打印结果
     for res in results:

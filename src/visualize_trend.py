@@ -156,7 +156,7 @@ if __name__ == '__main__':
     data = load_match_groups(excel_path)
 
 
-    match_id = "2025/05/18-29VS174-60"
+    match_id = "2025/05/15-64VS54-60"
     match_data = data[match_id]
     main = match_data["main"]
     subs = match_data["subs"]

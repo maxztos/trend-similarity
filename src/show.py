@@ -133,25 +133,77 @@ def annotate_trend_sequence(
         transform=plt.gca().transAxes
     )
 
-def visualize_series_with_signed_contour(
-    series,
-    title=None,
-    window=15
-):
-    plt.figure(figsize=(14, 4))
 
-    # 原始柱状
-    plot_series_bar(series, title=title)
+def draw_mean_lines(ax, contour, x_offset=0.99):
+    """
+    在 ax 上绘制：
+    - 全局均值
+    - 正值均值
+    - 负值均值
+    并在右侧显示数值
+    """
+    contour = np.asarray(contour)
 
-    # 面积轮廓线
-    contour = extract_signed_area_contour(
-        series,
-        window=window
+    mean_all = np.mean(contour)
+
+    pos_vals = contour[contour > 0]
+    neg_vals = contour[contour < 0]
+
+    mean_pos = np.mean(pos_vals) if len(pos_vals) > 0 else None
+    mean_neg = np.mean(neg_vals) if len(neg_vals) > 0 else None
+
+    amp = mean_pos - mean_neg
+    # x 位置（按坐标轴比例）
+    x = ax.get_xlim()[0] + x_offset * (ax.get_xlim()[1] - ax.get_xlim()[0])
+
+    # ===== 全局均值 =====
+    ax.axhline(mean_all, color="gray", linestyle="--", linewidth=1.2)
+    ax.text(
+        x, mean_all,
+        f"{mean_all:.1f}",
+        color="gray",
+        fontsize=9,
+        va="center",
+        ha="right",
+        backgroundcolor="white"
     )
-    plot_signed_contour(contour)
 
-    plt.tight_layout()
-    plt.show()
+    # ===== 正势均值 =====
+    if mean_pos is not None:
+        ax.axhline(mean_pos, color="red", linestyle=":", linewidth=1.5)
+        ax.text(
+            x, mean_pos,
+            f"+{mean_pos:.1f}",
+            color="red",
+            fontsize=9,
+            va="center",
+            ha="right",
+            backgroundcolor="white"
+        )
+
+    # ===== 负势均值 =====
+    if mean_neg is not None:
+        ax.axhline(mean_neg, color="blue", linestyle=":", linewidth=1.5)
+        ax.text(
+            x, mean_neg,
+            f"{mean_neg:.1f}",
+            color="blue",
+            fontsize=9,
+            va="center",
+            ha="right",
+            backgroundcolor="white"
+        )
+
+    ax.text(
+        x, amp,
+        f"AMP:{amp:.1f}--",
+        color="red",
+        fontsize=9,
+        va="center",
+        ha="right",
+        backgroundcolor="white"
+    )
+
 
 def visualize_match_with_signed_contour(
     match_data,
@@ -171,17 +223,13 @@ def visualize_match_with_signed_contour(
         window=window,
         title=f"MAIN: {main['id']}"
     )
+    # print(main_contour)
     ax.set_ylim(-100, 100)
-    # main_trend = contour_to_variable_trends(
-    #     main_contour,
-    #     window_size=trend_window,
-    # )
-    # main_trend = contour_to_trends_by_zero_crossing(main_contour)
-    main_trend = segments_to_timeline(contour_to_trend_segments(main_contour))
-    main["trend_seq"] = main_trend
+    # ⭐ 叠加均值线
+    draw_mean_lines(ax, main["series"])
 
-    annotate_trend_sequence(main_trend)
-
+    # 只在主图显示 legend（避免太乱）
+    ax.legend(loc="upper right", fontsize=9)
     # ===== 子图 =====
     for i, sub in enumerate(subs, start=2):
         ax = plt.subplot(total, 1, i)
@@ -190,17 +238,8 @@ def visualize_match_with_signed_contour(
             window=window,
             title=f"SUB: {sub['id']}"
         )
-
-        # sub_trend = contour_to_variable_trends(
-        #     sub_contour,
-        #     window_size=trend_window,
-        # )
-        # sub_trend = contour_to_trends_by_zero_crossing(sub_contour)
-        sub_trend = segments_to_timeline(contour_to_trend_segments(sub_contour))
-        sub["trend_seq"] = sub_trend
-
-        annotate_trend_sequence(sub_trend)
         ax.set_ylim(-100, 100)
+        draw_mean_lines(ax, sub["series"])
     plt.tight_layout()
     plt.show()
 
@@ -264,7 +303,7 @@ if __name__ == '__main__':
     data = load_match_groups(excel_path)
 
     match_id = "2025/05/18-29VS174-60"
-    print(data[match_id])
+    # print(data[match_id])
     # contour = contour_to_variable_trends
     visualize_match_with_signed_contour(
         data[match_id],

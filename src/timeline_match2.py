@@ -1,5 +1,6 @@
 import numpy as np
 
+from src.dataloader import load_match_groups
 from src.timeline_match import get_timelines
 
 def timeline_to_runs(tl, min_len=1):
@@ -91,7 +92,10 @@ def lcs_length(a, b):
 
 if __name__ == '__main__':
 
-    data = get_timelines("2025/05/13-58VS2783-60")
+    excel_path = "../data/2.xlsx"
+    excel_data = load_match_groups(excel_path)
+    match_data = excel_data["2025/05/15-64VS54-60"]
+    data = get_timelines(match_data)
     main_tl = data["main"]["timeline"]
     # print(main_tl)
     # print(data["subs"][-2]["timeline"])

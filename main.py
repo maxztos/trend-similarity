@@ -1,7 +1,8 @@
 import numpy as np
 
-from src.contour_match import get_contour, calculate_dtw_distance
+from src.contour_match import get_contour, calculate_dtw_distance, dtw_to_score
 from src.dataloader import load_match_groups
+from src.scoring import series_stats, apply_penalties
 from src.timeline_match import get_timelines
 
 if __name__ == '__main__':
@@ -19,68 +20,115 @@ if __name__ == '__main__':
     for match_id in data.keys():
         try:
             # 获取当前match_id对应的比赛数据
-            # print(match_id)
             match_data = data[match_id]
+            # print(match_data["main"]["series"])
             # 获取轮廓数据（主序列+子序列）
             contour_data = get_contour(match_data)
-            # contour_data = get_timelines(match_data)
-            # print(contour_data)
-            main_con = contour_data["main"]["contour"]
-            # main_con = contour_data["main"]["timeline"]
 
+            main_con = contour_data["main"]["contour"]
+            main_series = contour_data["main"]["series"]
+            main_series_stats = series_stats(main_series)
             # 存储当前match_id下所有子序列的DTW结果
             sub_results = []
 
             # 遍历当前比赛的所有子序列
             for sub in contour_data["subs"]:
-                # # 跳过空的子序列（避免计算报错）
-                # if not sub["contour"]:
-                #     print(f"警告：match_id[{match_id}]的子ID[{sub['id']}]轮廓为空，跳过计算")
-                #     continue
 
-                # 计算DTW距离
                 dist = calculate_dtw_distance(main_con, sub["contour"])
-                # print(main_con, sub["contour"])
-                # 计算归一化距离（消除长度影响）
-                norm_dist = dist / (len(main_con) + len(sub["contour"]))
+                avg_dist = dist / max(len(main_con), len(sub["contour"]))
+                base_score = dtw_to_score(avg_dist)
+
+                sub_series_stats = series_stats(sub["series"])
+                # 惩罚项计算
+
+                final_score, penalties, total_penalty = apply_penalties(
+                    base_score,
+                    main_series_stats,
+                    sub_series_stats,
+                    main_con,
+                    sub["contour"]
+                )
 
                 sub_results.append({
                     "sub_id": sub["id"],
                     "distance": dist,
-                    "norm_distance": norm_dist
+                    "avg_distance": avg_dist,
+                    "base_score": base_score,
+                    "final_score": final_score,
+                    "total_penalty": total_penalty,
+                    "penalties": penalties
                 })
 
-            # 4. 找到当前match_id的最小DTW距离结果
-            if sub_results:  # 确保有子序列数据
-                min_result = min(sub_results, key=lambda x: x["norm_distance"])
-                # 补充match_id信息，方便溯源
-                min_result["match_id"] = match_id
-                all_min_results.append(min_result)
+            # ========== 按最终得分降序排序所有子序列 ==========
+            if sub_results:
+                # 按 final_score 降序（分数越高越相似）
+                sub_results_sorted = sorted(
+                    sub_results,
+                    key=lambda x: x["final_score"],
+                    reverse=True
+                )
 
-                # 打印当前match_id的最小DTW结果（格式清晰）
-                print(f"=====================================")
+                print(f"\n=====================================")
                 print(f"主数据ID: {match_id}")
-                print(f"最优副数据ID: {min_result['sub_id']}")
-                # print(f"最小DTW距离: {min_result['distance']:.2f}")
-                # print(f"最小归一化DTW距离: {min_result['norm_distance']:.4f}")
+                print(f"该场次下所有子序列匹配结果（按最终得分降序）:")
+                print(
+                    f"{'子ID':<18} "
+                    f"{'DTW':>8} "
+                    f"{'Base':>7} "
+                    f"{'Penalty':>8} "
+                    f"{'Final':>7}"
+                )
+                print("-" * 65)
+
+                for res in sub_results_sorted:
+                    print(
+                        f"{res['sub_id']:<18} "
+                        f"{res['distance']:>8.1f} "
+                        f"{res['base_score']:>7.2f} "
+                        f"{res['total_penalty']:>8.2f} "
+                        f"{res['final_score']:>7.2f}"
+                    )
+
+                    # ===== 打印扣分项（如有）=====
+                    if res["penalties"]:
+                        for p in res["penalties"]:
+                            if p["type"] == "amp":
+                                print(
+                                    f"    - AMP惩罚 | Δamp={p['delta']:.1f}"
+                                )
+                            elif p["type"] == "mean":
+                                print(
+                                    f"    - MEAN惩罚 | Δmean={p['delta']:.1f}"
+                                )
+                            elif p["type"] == "trend":
+                                print(
+                                    f"    - 趋势惩罚 | mismatch={p['mismatch']}"
+                                )
+
+                # ===== 当前 match_id 下的最佳匹配 =====
+                best = sub_results_sorted[0]
+                best["match_id"] = match_id
+                all_min_results.append(best)
+
             else:
-                # 无有效子序列的情况
-                print(f"=====================================")
-                print(f"比赛ID: {match_id} | 无有效子序列数据，无法计算DTW距离")
+                print(f"\n=====================================")
+                print(f"主数据ID: {match_id} | 无有效子序列数据")
                 all_min_results.append({
                     "match_id": match_id,
                     "sub_id": None,
                     "distance": None,
-                    "norm_distance": None
+                    "base_score": None,
+                    "final_score": None
                 })
 
         except Exception as e:
-            # 捕获单个match_id处理失败的异常，不影响整体遍历
-            print(f"=====================================")
+            #捕获单个match_id处理失败的异常
+            print(f"\n=====================================")
             print(f"处理主数据ID[{match_id}]时出错: {str(e)}")
             all_min_results.append({
                 "match_id": match_id,
                 "sub_id": None,
                 "distance": None,
-                "norm_distance": None
+                "norm_distance": None,
+                "score": None
             })

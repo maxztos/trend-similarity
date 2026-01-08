@@ -28,12 +28,14 @@ def get_contour(match_data, window=3):
 
         subs_output.append({
             "id": sub["id"],
+            "series": sub_series,
             "contour": sub_contour
         })
 
     return {
         "main": {
             "id": main["id"],
+            "series": main_series,
             "contour": main_contour
         },
         "subs": subs_output
@@ -60,6 +62,14 @@ def calculate_dtw_distance(s1, s2):
             dtw_matrix[i, j] = cost + last_min
 
     return dtw_matrix[n, m]
+
+def dtw_to_score(avg_dist, scale=30.0):
+    """
+    avg_dist: DTW 每步平均距离
+    scale: 人工可调，≈“能接受的差异”
+    """
+    score = 100 * np.exp(-avg_dist / scale)
+    return float(score)
 
 def slide_and_match(main_timeline, sub_timeline):
     """
@@ -109,7 +119,7 @@ if __name__ == '__main__':
 
     excel_path = "../data/2.xlsx"
     data = load_match_groups(excel_path)
-    match_id = "2025/05/05-2783VS51-60"
+    match_id = "2025/05/10-161VS211-61"
     match_data = data[match_id]
     data = get_contour(match_data)
     main_con = data["main"]["contour"]
@@ -124,10 +134,14 @@ if __name__ == '__main__':
         # 归一化得分 = 距离 / (主序列长度 + 子序列长度)
         norm_dist = dist / (len(main_con) + len(sub["contour"]))
 
+        avg_dist = dist / max(len(main_con), len(sub["contour"]))
+        score = dtw_to_score(avg_dist)
+
         results.append({
             "sub_id": sub["id"],
             "distance": dist,
-            "norm_distance": norm_dist
+            "norm_distance": norm_dist,
+            "score": score
         })
 
     # 3. 按距离从小到大排序（最相似的在前）
@@ -135,4 +149,4 @@ if __name__ == '__main__':
 
     # 打印结果
     for res in results:
-        print(f"ID: {res['sub_id']} | DTW 距离: {res['distance']:.2f} | 归一化距离: {res['norm_distance']:.4f}")
+        print(f"ID: {res['sub_id']} | 距离: {res['distance']:.2f} | 归一化距离: {res['norm_distance']:.4f} | 得分: {res['score']:.2f}")

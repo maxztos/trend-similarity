@@ -1,5 +1,6 @@
 import numpy as np
 
+from src.dataloader import load_match_groups
 from src.timeline_match import get_timelines
 
 def dilate_1d(mask, radius=5):
@@ -117,7 +118,10 @@ def slide_miou(main_tl, sub_tl, max_slide=20, min_overlap=15):
 
 if __name__ == '__main__':
 
-    data = get_timelines("2025/05/18-29VS174-60")
+    excel_path = "../data/2.xlsx"
+    excel_data = load_match_groups(excel_path)
+    match_data = excel_data["2025/05/15-64VS54-60"]
+    data = get_timelines(match_data)
     main_tl = data["main"]["timeline"]
     # print(main_tl)
     # print(data["subs"][-2]["timeline"])

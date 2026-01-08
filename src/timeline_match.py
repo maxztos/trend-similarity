@@ -37,8 +37,7 @@ def calculate_trend_similarity(main_arr, sub_arr):
     return final_score
 
 def get_timelines(match_data , window=3):
-    # excel_path = "../data/2.xlsx"
-    # data = load_match_groups(excel_path)
+
     # match_data = data[match_id]
 
     # ===== Main =====
@@ -142,7 +141,6 @@ def slide_and_match(
         score = calculate_trend_similarity(a, b)
         # score = calculate_visual_score(a, b)
 
-
         results.append({
             "direction": "right" if shift > 0 else "left" if shift < 0 else "center",
             "shift": shift,
@@ -181,7 +179,10 @@ def print_match_results(results, score_fmt="{:.3f}"):
 
 if __name__ == '__main__':
 
-    data = get_timelines("2025/05/15-64VS54-60")
+    excel_path = "../data/2.xlsx"
+    excel_data = load_match_groups(excel_path)
+    match_data = excel_data["2025/05/15-64VS54-60"]
+    data = get_timelines(match_data)
     main_tl = data["main"]["timeline"]
     # print(main_tl)
     # print(data["subs"][-2]["timeline"])

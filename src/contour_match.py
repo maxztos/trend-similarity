@@ -63,7 +63,7 @@ def calculate_dtw_distance(s1, s2):
 
     return dtw_matrix[n, m]
 
-def dtw_to_score(avg_dist, scale=30.0):
+def dtw_to_score(avg_dist, scale=20.0):
     """
     avg_dist: DTW 每步平均距离
     scale: 人工可调，≈“能接受的差异”

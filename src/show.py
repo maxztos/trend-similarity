@@ -229,7 +229,7 @@ def visualize_match_with_signed_contour(
     draw_mean_lines(ax, main["series"])
 
     # 只在主图显示 legend（避免太乱）
-    ax.legend(loc="upper right", fontsize=9)
+    # ax.legend(loc="upper right", fontsize=9)
     # ===== 子图 =====
     for i, sub in enumerate(subs, start=2):
         ax = plt.subplot(total, 1, i)
@@ -302,7 +302,7 @@ if __name__ == '__main__':
     excel_path = "../data/2.xlsx"
     data = load_match_groups(excel_path)
 
-    match_id = "2025/05/18-29VS174-60"
+    match_id = "2025/05/10-161VS211-61"
     # print(data[match_id])
     # contour = contour_to_variable_trends
     visualize_match_with_signed_contour(

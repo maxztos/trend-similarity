@@ -70,10 +70,10 @@ if __name__ == '__main__':
 
                 print(f"\n=====================================")
                 print(f"主数据ID: {match_id}")
-                print(f"该场次下所有子序列匹配结果（按最终得分降序）:")
+                print(f"所有子序列匹配结果（按最终得分降序）:")
                 print(
                     f"{'子ID':<18} "
-                    f"{'DTW':>8} "
+                    # f"{'DTW':>8} "
                     f"{'Base':>7} "
                     f"{'Penalty':>8} "
                     f"{'Final':>7}"
@@ -83,7 +83,7 @@ if __name__ == '__main__':
                 for res in sub_results_sorted:
                     print(
                         f"{res['sub_id']:<18} "
-                        f"{res['distance']:>8.1f} "
+                        # f"{res['distance']:>8.1f} "
                         f"{res['base_score']:>7.2f} "
                         f"{res['total_penalty']:>8.2f} "
                         f"{res['final_score']:>7.2f}"
@@ -93,17 +93,21 @@ if __name__ == '__main__':
                     if res["penalties"]:
                         for p in res["penalties"]:
                             if p["type"] == "amp":
-                                print(
-                                    f"    - AMP惩罚 | Δamp={p['delta']:.1f}"
+                                print( #| Δamp={p['delta']:.1f} | penalty = {p["penalty"]}
+                                    f"    - AMP惩罚 "
                                 )
                             elif p["type"] == "mean":
-                                print(
-                                    f"    - MEAN惩罚 | Δmean={p['delta']:.1f}"
+                                print(# | Δmean={p['delta']:.1f}  | penalty = {p["penalty"]}
+                                    f"    - MEAN惩罚 "
                                 )
                             elif p["type"] == "trend":
-                                print(
-                                    f"    - 趋势惩罚 | mismatch={p['mismatch']}"
+                                print(# | mismatch={p['mismatch']}  | penalty = {p["penalty"]}
+                                    f"    - 趋势惩罚 "
                                 )
+                            # elif p["type"] == "asym":
+                            #     print(
+                            #         f"    - 同步惩罚"
+                            #     )
 
                 # ===== 当前 match_id 下的最佳匹配 =====
                 best = sub_results_sorted[0]

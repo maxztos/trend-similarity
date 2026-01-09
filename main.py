@@ -7,8 +7,12 @@ from src.timeline_match import get_timelines
 
 if __name__ == '__main__':
     # Excel文件路径
-    excel_path = "data/2.xlsx"
+    excel_path = "data/2n.xlsx"
 
+    # 结果保存路径
+    output_xlsx_path = "data/match_results2n.xlsx"
+    # 存储用于导出的平铺数据
+    excel_rows = []
     # 1. 加载所有比赛分组数据
     data = load_match_groups(excel_path)
     # print(data)

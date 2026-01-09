@@ -297,16 +297,100 @@ def visualize_contour(match_data):
     ax = plt.subplot(total, 1, 1)
     main_contour = extract_signed_area_contour(main["series"])
 
+import os
+import matplotlib.pyplot as plt
+
+def format_filename(match_id):
+    """将 match_id 转换为 Windows 合法的安全文件名"""
+    # 将 2025/05/10 替换为 20250510 或 2025_05_10
+    # 这里建议直接去掉斜杠，符合你要求的 20250518 格式
+    return match_id.replace("/", "").replace(":", "_")
+# if __name__ == '__main__':
+#     excel_path = "../data/2.xlsx"
+#     data = load_match_groups(excel_path)
+#
+#     match_id = "2025/05/10-161VS211-61"
+#
+#     visualize_match_with_signed_contour(
+#         data[match_id],
+#         window=3
+#     )
+
+def format_filename(match_id):
+    """将 match_id 转换为 Windows 合法的安全文件名"""
+    # 按照你的要求：2025/05/18 -> 20250518
+    return match_id.replace("/", "").replace(":", "_")
+
+
+import matplotlib
+
+matplotlib.use('Agg')  # 强制使用非交互式后端，拦截所有 plt.show()
+import matplotlib.pyplot as plt
+import os
+
+
+def format_filename(match_id):
+    return match_id.replace("/", "").replace(":", "_")
+
+
+def batch_process_visualizations(data, id_list, output_folder="visual_results"):
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    for m_id in id_list:
+        m_id = m_id.strip()
+        if m_id not in data:
+            continue
+
+        try:
+            # 1. 清理之前的残余画布
+            # 1. 清理
+            plt.close('all')
+
+            # 2. 调用原函数（它内部应该已经设好了 figsize）
+            visualize_match_with_signed_contour(data[m_id], window=3)
+
+            # 3. 获取当前画布
+            fig = plt.gcf()
+
+            if fig.get_axes():
+                safe_filename = format_filename(m_id)
+                save_path = os.path.join(output_folder, f"{safe_filename}.png")
+
+                # 直接保存，不要 set_size_inches
+                # bbox_inches='tight' 会自动裁掉多余白边
+                plt.savefig(save_path, bbox_inches='tight', dpi=120)
+                print(f"  ---> 成功保存（原尺寸）: {save_path}")
+
+        except Exception as e:
+            print(f"处理 ID [{m_id}] 出错: {e}")
+        finally:
+            plt.close('all')
+
 
 if __name__ == '__main__':
-    excel_path = "../data/2.xlsx"
+    excel_path = "../data/2n.xlsx"
     data = load_match_groups(excel_path)
 
-    match_id = "2025/05/10-161VS211-61"
-    # print(data[match_id])
-    # contour = contour_to_variable_trends
-    visualize_match_with_signed_contour(
-        data[match_id],
-        window=3
-    )
+    # 你提供的 ID 列表
+    match_ids = [
+        "2025/04/27-276VS72-62",
+        "2025/04/28-76VS78-60",
+        "2025/05/02-4852VS109-60",
+        "2025/05/03-13VS183-60",
+        "2025/05/03-78VS86-60",
+        "2025/05/04-84VS73-60",
+        "2025/05/05-2783VS51-60",
+        "2025/05/11-76VS79-61",
+        "2025/05/11-174VS14-60",
+        "2025/05/15-131VS63-60",
+        "2025/05/15-64VS54-60",
+        "2025/05/16-15VS32-68",
+        "2025/05/17-1730VS796-62",
+        "2025/05/18-29VS174-60",
+        "2025/05/25-165VS29-67"
+    ]
 
+    # 执行批量保存
+    batch_process_visualizations(data, match_ids)
+    print("\n所有图像批量处理完成！")

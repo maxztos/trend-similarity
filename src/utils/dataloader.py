@@ -27,9 +27,37 @@ from collections import defaultdict
 
 """
 def parse_s6(s):
-    if isinstance(s, list):
-        return np.array(s, dtype=np.float32)
-    return np.array(ast.literal_eval(s), dtype=np.float32)
+    """
+    安全解析 Excel 中的序列字段：
+    - 支持 list / ndarray
+    - 支持字符串形式的 list（含 nan / None）
+    - 空值返回 None
+    """
+
+    # 1. Excel 空单元格
+    if s is None or (isinstance(s, float) and pd.isna(s)):
+        return None
+
+    # 2. 已经是 list / ndarray
+    if isinstance(s, (list, tuple, np.ndarray)):
+        return np.asarray(s, dtype=np.float32)
+
+    # 3. 字符串情况
+    if isinstance(s, str):
+        s = s.strip()
+        if not s:
+            return None
+
+        # 关键：把 nan / None 显式转成 np.nan
+        s = s.replace("nan", "np.nan").replace("None", "np.nan")
+
+        try:
+            return np.array(eval(s, {"np": np}), dtype=np.float32)
+        except Exception as e:
+            raise ValueError(f"无法解析序列字段: {s}") from e
+
+    # 4. 兜底
+    raise ValueError(f"不支持的类型: {type(s)}")
 
 NUM_COLS = ["a11", "a22", "b11", "b22", "c11", "c22", "c33"]
 

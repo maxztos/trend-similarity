@@ -1,7 +1,6 @@
 import numpy as np
 
-from src.config import TREND_CONFIG
-from src.dataloader import load_match_groups
+from src.utils.dataloader import load_match_groups
 
 def window_trend(
     contour_window,

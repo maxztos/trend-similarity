@@ -1,16 +1,14 @@
-import numpy as np
-
 from src.contour_match import get_contour, calculate_dtw_distance, dtw_to_score
-from src.dataloader import load_match_groups
+from src.utils.dataloader import load_match_groups
 from src.scoring import series_stats, apply_penalties
-from src.timeline_match import get_timelines
+
 # test dell git
 if __name__ == '__main__':
     # Excel文件路径
     excel_path = "data/2n.xlsx"
 
     # 结果保存路径
-    output_xlsx_path = "data/match_results2n.xlsx"
+    # output_xlsx_path = "data/match_results2n.xlsx"
     # 存储用于导出的平铺数据
     excel_rows = []
     # 1. 加载所有比赛分组数据

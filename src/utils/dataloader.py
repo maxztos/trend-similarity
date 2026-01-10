@@ -10,12 +10,14 @@ from collections import defaultdict
   match_id1: {
     "main": {
         "id": match_id2,
-        "series": np.ndarray
+        "series": np.ndarray,
+        "nums": [a11,a22,b11,b22,c11,c22,c33]
     },
     "subs": [
         {
             "id": match_id2,
-            "series": np.ndarray
+            "series": np.ndarray,
+            "nums": "nums": [a11,a22,b11,b22,c11,c22,c33]
         },
         ...
     ]
@@ -28,6 +30,8 @@ def parse_s6(s):
     if isinstance(s, list):
         return np.array(s, dtype=np.float32)
     return np.array(ast.literal_eval(s), dtype=np.float32)
+
+NUM_COLS = ["a11", "a22", "b11", "b22", "c11", "c22", "c33"]
 
 """
 describe:提取Excel中的数据，封装成group变量
@@ -46,7 +50,8 @@ def load_match_groups(excel_path):
         mid1 = row["match_id1"]
         entry = {
             "id": row["match_id2"],
-            "series": parse_s6(row["s6"])
+            "series": parse_s6(row["s6"]),
+            "nums": np.array([row[col] for col in NUM_COLS], dtype=np.float32)
         }
 
         if row["Type"].lower() == "主数据":
@@ -56,22 +61,12 @@ def load_match_groups(excel_path):
 
     return groups
 
-def normalize_length(series, target_len):
-    series = np.asarray(series, dtype=np.float32)
-
-    if len(series) == target_len:
-        return series
-
-    x_old = np.linspace(0, 1, len(series))
-    x_new = np.linspace(0, 1, target_len)
-    return np.interp(x_new, x_old, series)
-
 
 
 
 if __name__ == '__main__':
 
-    excel_path = "../data/2.xlsx"
+    excel_path = "../../data/2.xlsx"
     groups = load_match_groups(excel_path)
     print(groups)
 

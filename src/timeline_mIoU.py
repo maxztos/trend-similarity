@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.dataloader import load_match_groups
+from src.utils.dataloader import load_match_groups
 from src.timeline_match import get_timelines
 
 def dilate_1d(mask, radius=5):

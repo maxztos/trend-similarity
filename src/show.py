@@ -1,11 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from matplotlib.collections import LineCollection
 
-from src.dataloader import load_match_groups
-from src.trend_segmentation import contour_to_variable_trends, contour_to_trends_by_zero_crossing, segments_to_timeline, \
-    contour_to_trend_segments
+from src.utils.dataloader import load_match_groups
 
 
 # 绘制一个序列的图形
@@ -297,8 +294,6 @@ def visualize_contour(match_data):
     ax = plt.subplot(total, 1, 1)
     main_contour = extract_signed_area_contour(main["series"])
 
-import os
-import matplotlib.pyplot as plt
 
 def format_filename(match_id):
     """将 match_id 转换为 Windows 合法的安全文件名"""

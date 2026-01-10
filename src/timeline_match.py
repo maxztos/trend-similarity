@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.dataloader import load_match_groups
+from src.utils.dataloader import load_match_groups
 from src.show import extract_signed_area_contour
 from src.trend_segmentation import contour_to_trend_segments, segments_to_timeline
 from scipy.stats import pearsonr

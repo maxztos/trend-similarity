@@ -1,10 +1,7 @@
 # src/visualize_trend_compare.py
 
+from src.utils.dataloader import load_match_groups
 import matplotlib.pyplot as plt
-
-from src.dataloader import load_match_groups
-import matplotlib.pyplot as plt
-import numpy as np
 
 from src.show import extract_signed_area_contour
 from src.trend_segmentation import contour_to_trend_segments

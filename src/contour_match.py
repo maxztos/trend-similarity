@@ -1,14 +1,15 @@
 import numpy as np
-from fastdtw import fastdtw
-from src.dataloader import load_match_groups
+
+from src.scoring import series_stats, apply_penalties
+from src.utils.dataloader import load_match_groups
 from src.show import extract_signed_area_contour
-from src.trend_segmentation import contour_to_trend_segments
 
 
 def get_contour(match_data, window=3):
     # ===== Main =====
     main = match_data["main"]
     main_series = main["series"]
+    main_nums = main["nums"]
 
     main_contour = extract_signed_area_contour(
         main_series,
@@ -20,6 +21,7 @@ def get_contour(match_data, window=3):
 
     for sub in match_data["subs"]:
         sub_series = sub["series"]
+        sub_nums = sub["nums"]
 
         sub_contour = extract_signed_area_contour(
             sub_series,
@@ -29,14 +31,16 @@ def get_contour(match_data, window=3):
         subs_output.append({
             "id": sub["id"],
             "series": sub_series,
-            "contour": sub_contour
+            "contour": sub_contour,
+            "nums": sub_nums
         })
 
     return {
         "main": {
             "id": main["id"],
             "series": main_series,
-            "contour": main_contour
+            "contour": main_contour,
+            "nums": main_nums
         },
         "subs": subs_output
     }
@@ -71,48 +75,79 @@ def dtw_to_score(avg_dist, scale=20.0):
     score = 100 * np.exp(-avg_dist / scale)
     return float(score)
 
-def slide_and_match(main_timeline, sub_timeline):
-    """
-    在主时间轴上滑动子时间轴，计算每一个位置的匹配得分
-    """
-    matches = []
-    n = len(main_timeline)
-    m = len(sub_timeline)
-
-    # 确保子序列不比主序列长
-    if m > n:
-        return [{"offset": 0, "score": 0}]
-
-    # 滑动窗口：从左到右移动 sub_timeline
-    for i in range(n - m + 1):
-        # 提取当前主序列的窗口部分
-        window = main_timeline[i: i + m]
-
-        # 计算相似度得分 (这里使用简单的负相关距离转得分，或者余弦相似度)
-        # 方案：计算两个向量的点积，并进行归一化
-        dot_product = np.dot(window, sub_timeline)
-        norm_window = np.linalg.norm(window)
-        norm_sub = np.linalg.norm(sub_timeline)
-
-        if norm_window == 0 or norm_sub == 0:
-            score = 0
-        else:
-            # 余弦相似度：范围 [-1, 1]
-            score = dot_product / (norm_window * norm_sub)
-
-        matches.append({
-            "offset": i,  # 起始索引位置
-            "score": float(score)
-        })
-
-    return matches
-
-
 # 模拟打印函数
-def print_match_results(results):
-    for res in results:
-        print(
-            f"子 ID: {res['sub_id']} | 最佳偏移: {res['best_match']['offset']} | 最高得分: {res['best_match']['score']:.4f}")
+def match_results(excel_path):
+
+    # 1. 加载所有比赛分组数据
+    data = load_match_groups(excel_path)
+
+    all_results = []          # 存所有 sub 的评分结果
+    match_count = 0           # match_id 数量
+    total_sub_count = 0       # sub 总数
+
+    # 2. 遍历所有 match_id
+    for match_id, match_data in data.items():
+        try:
+            match_count += 1
+
+            if match_data["main"] is None:
+                continue
+
+            main_nums = match_data["main"]["nums"]
+
+            # 获取轮廓数据
+            contour_data = get_contour(match_data)
+
+            main_con = contour_data["main"]["contour"]
+            main_series = contour_data["main"]["series"]
+            main_series_stats = series_stats(main_series)
+
+            # 3. 遍历所有子序列（不选 best，全记录）
+            for sub in contour_data["subs"]:
+                total_sub_count += 1
+
+                dist = calculate_dtw_distance(main_con, sub["contour"])
+                avg_dist = dist / max(len(main_con), len(sub["contour"]))
+                base_score = dtw_to_score(avg_dist)
+
+                sub_series_stats = series_stats(sub["series"])
+
+                final_score, penalties, total_penalty = apply_penalties(
+                    base_score,
+                    main_series_stats,
+                    sub_series_stats,
+                    main_con,
+                    sub["contour"],
+                )
+
+                all_results.append({
+                    "match_id": match_id,
+                    "sub_id": sub["id"],
+                    "main_nums": main_nums,
+                    "sub_nums": sub["nums"],
+                    # "distance": dist,
+                    # "avg_distance": avg_dist,
+                    # "base_score": base_score,
+                    "final_score": final_score,
+                    # "total_penalty": total_penalty,
+                    # "penalties": penalties
+                })
+
+        except Exception:
+            # 单个 match 出问题，不影响整体
+            continue
+
+    # 4. 只输出总体统计
+    print(f"Processed match count: {match_count}")
+    print(f"Total sub entries processed: {total_sub_count}")
+
+    return {
+        "results": all_results,
+        "stats": {
+            "match_count": match_count,
+            "total_sub_count": total_sub_count
+        }
+    }
 
 
 if __name__ == '__main__':

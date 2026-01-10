@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.dataloader import load_match_groups
+from src.utils.dataloader import load_match_groups
 from src.timeline_match import get_timelines
 
 def timeline_to_runs(tl, min_len=1):

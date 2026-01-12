@@ -4,7 +4,6 @@ from src.scoring import series_stats, apply_penalties
 from src.utils.dataloader import load_match_groups
 from src.show import extract_signed_area_contour
 
-
 def get_contour(match_data, window=3):
     # ===== Main =====
     main = match_data["main"]
@@ -75,7 +74,7 @@ def dtw_to_score(avg_dist, scale=20.0):
     score = 100 * np.exp(-avg_dist / scale)
     return float(score)
 
-# 模拟打印函数
+# 输出匹配后的评分结果，计算得分
 def match_results(excel_path):
 
     # 1. 加载所有比赛分组数据

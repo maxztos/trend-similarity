@@ -3,7 +3,7 @@ import numpy as np
 from src.utils.dataloader import load_match_groups
 
 
-# 惩罚上下偏移
+# 振幅惩罚
 def penalty_amp(amp_main, amp_sub, tol=10, scale=20):
     """
     振幅差异惩罚函数
@@ -29,7 +29,7 @@ def penalty_amp(amp_main, amp_sub, tol=10, scale=20):
 
     return penalty_score, delta
 
-
+# 惩罚上下偏移
 def penalty_mean(mu_main, mu_sub, tol=10, scale=20):
     """
     均值偏移惩罚函数

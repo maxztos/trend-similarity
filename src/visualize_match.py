@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from src.timeline_match import slide_and_match, get_timeline
+from src.timeline_match import slide_and_match, get_timelines
 
 
 def visualize_timeline_match(
@@ -71,7 +71,7 @@ def visualize_timeline_match(
 
 if __name__ == '__main__':
     # main_timeline / sub_timeline 已算好
-    main_timeline, sub_timeline1, sub_timeline2 = get_timeline("2025/05/18-29VS174-60")
+    main_timeline, sub_timeline1, sub_timeline2 = get_timelines("2025/05/18-29VS174-60")
     matches = slide_and_match(main_timeline, sub_timeline2)
 
     best = max(matches, key=lambda x: x["score"])

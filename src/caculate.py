@@ -500,10 +500,10 @@ def print_match_results(results, processed, threshold=48):
 
 
 if __name__ == '__main__':
-    excel_path= "../data/3n.xlsx"
+    excel_path= "../data/2nx.xlsx"
     results = match_results(excel_path)
     # print(results)
-    processed = generate_nums(results["results"], threshold=52)
+    processed = generate_nums(results["results"], threshold=0)
 
     # print_match_results(results["results"], processed, threshold=0)
     # print(processed)
@@ -513,7 +513,7 @@ if __name__ == '__main__':
     labels = ["a11", "a22", "b11", "b22", "c11", "c22", "c33"]
 
     print("\n===== 单维度统计 =====")
-    print(f"{'维度':<6} {'SUM':>10} {'MEAN':>10} {'COUNT':>8}")
+    print(f"{'维度':<6} {'总和':>10} {'均值':>10} {'次数':>8}")
     print("-" * 38)
 
     for i, name in enumerate(labels):
@@ -524,7 +524,7 @@ if __name__ == '__main__':
         print(f"{name:<6} {s:>10.3f} {m:>10.3f} {int(c):>8}")
 
     print("\n===== 分组统计 =====")
-    print(f"{'组':<15} {'SUM':>10} {'MEAN':>10} {'COUNT':>8}")
+    print(f"{'组':<15} {'总和':>10} {'均值':>10} {'次数':>8}")
     print("-" * 45)
 
     for name, g in stats["group"].items():

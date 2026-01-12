@@ -503,7 +503,7 @@ if __name__ == '__main__':
     excel_path= "../data/3n.xlsx"
     results = match_results(excel_path)
     # print(results)
-    processed = generate_nums(results["results"], threshold=37)
+    processed = generate_nums(results["results"], threshold=50)
 
     # print_match_results(results["results"], processed, threshold=0)
     # print(processed)

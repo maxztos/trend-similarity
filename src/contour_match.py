@@ -1,8 +1,92 @@
 import numpy as np
-
+from tslearn.metrics import soft_dtw
+from src.preprocess import preprocess_data
 from src.scoring import series_stats, apply_penalties
 from src.utils.dataloader import load_match_groups
 from src.show import extract_signed_area_contour
+from tslearn.metrics import soft_dtw
+
+
+def soft_dtw_tail_score(
+    main,
+    sub,
+    tail_ratio=0.7,
+    gamma=0.5,
+    temperature=1.0,
+    eps=1e-6,
+):
+    """
+    Soft-DTW 相似度评分（只看后半段走势）
+
+    参数
+    ----
+    main, sub : dict
+        {
+            "series": np.ndarray  # 一维时间序列
+        }
+
+    tail_ratio : float
+        只取后多少比例（默认 30%）
+
+    gamma : float
+        Soft-DTW 平滑系数，越小越严格（推荐 0.3 ~ 1.0）
+
+    temperature : float
+        score 衰减温度，越小分数掉得越快
+
+    返回
+    ----
+    score : float
+        0~1，越大越相似
+    dist : float
+        Soft-DTW 原始距离（调试用）
+    """
+
+    x = main
+    y = sub
+
+    # ---------- 1. 长度保护 ----------
+    L = min(len(x), len(y))
+    if L < 5:
+        # 太短了，工程上一般不直接杀，给个中性分
+        return 0.5, None
+
+    tail_len = max(3, int(np.ceil(L * tail_ratio)))
+
+    x_tail = x[-tail_len:]
+    y_tail = y[-tail_len:]
+
+    # ---------- 2. 去均值（去绝对高度） ----------
+    x_tail = x_tail - np.mean(x_tail)
+    y_tail = y_tail - np.mean(y_tail)
+
+    # ---------- 3. 标准化（去振幅） ----------
+    x_std = np.std(x_tail)
+    y_std = np.std(y_tail)
+
+    if x_std < eps or y_std < eps:
+        # 几乎是平线，走势信息不足
+        return 0.5, None
+
+    x_tail = x_tail / (x_std + eps)
+    y_tail = y_tail / (y_std + eps)
+
+    # ---------- 4. Soft-DTW 距离 ----------
+    # tslearn 需要 (T, 1) 形状
+    x_tail = x_tail.reshape(-1, 1)
+    y_tail = y_tail.reshape(-1, 1)
+
+    dist = soft_dtw(x_tail, y_tail, gamma=gamma)
+
+    # ---------- 5. 距离 → soft score ----------
+    # 指数映射，连续、可解释
+    score = np.exp(-dist / temperature)
+
+    return float(score), float(dist)
+    # return float(score)
+
+
+
 
 def get_contour(match_data, window=3):
     # ===== Main =====
@@ -105,11 +189,52 @@ def dtw_to_score(avg_dist, scale=20.0):
     score = 100 * np.exp(-avg_dist / scale)
     return float(score)
 
+def derivative_dtw_distance(
+    main,
+    sub,
+    tail_ratio=1,
+    dtw_func=None,
+):
+    """
+    Derivative-DTW distance（只算后半段趋势）
+
+    参数：
+    - main, sub: np.ndarray
+    - tail_ratio: 只看后多少比例
+    - dtw_func: 你已有的 DTW 函数
+    """
+
+    assert dtw_func is not None
+
+    n = min(len(main), len(sub))
+    if n < 5:
+        return np.inf
+
+    start = int(n * (1 - tail_ratio))
+    main_tail = main[start:]
+    sub_tail  = sub[start:]
+
+    # 1️⃣ 导数
+    d_main = np.diff(main_tail)
+    d_sub  = np.diff(sub_tail)
+
+    # 长度保护
+    if len(d_main) < 3 or len(d_sub) < 3:
+        return np.inf
+
+    # 2️⃣ DTW on derivative
+    dist = dtw_func(d_main, d_sub)
+
+    # 3️⃣ 归一化（可选但推荐）
+    norm = max(len(d_main), len(d_sub))
+    return dist / norm
 # 输出匹配后的评分结果，计算得分
 def match_results(excel_path):
 
     # 1. 加载所有比赛分组数据
-    data = load_match_groups(excel_path)
+    raw_data = load_match_groups(excel_path)
+    # 对源数据预处理
+    data, stats = preprocess_data(raw_data)
 
     all_results = []          # 存所有 sub 的评分结果
     match_count = 0           # match_id 数量
@@ -136,15 +261,17 @@ def match_results(excel_path):
             for sub in contour_data["subs"]:
                 total_sub_count += 1
 
-                # dist = calculate_dtw_distance(main_con, sub["contour"])
-                dist = segmented_dtw_w(main_con, sub["contour"])
+                dist = calculate_dtw_distance(main_con, sub["contour"])
+                ddist = derivative_dtw_distance(main_con, sub["contour"],dtw_func = calculate_dtw_distance)
+                # dist = segmented_dtw_w(main_con, sub["contour"])
 
-                # avg_dist = dist / max(len(main_con), len(sub["contour"]))
+                avg_dist = dist / max(len(main_con), len(sub["contour"]))
 
-                # base_score = dtw_to_score(avg_dist)
-                base_score = dtw_to_score(dist)
+                base_score = dtw_to_score(avg_dist)
+                # base_score = dtw_to_score(dist)
                 sub_series_stats = series_stats(sub["series"])
 
+                soft_dtw, sdist= soft_dtw_tail_score(main_con, sub["series"])
                 final_score, penalties, total_penalty = apply_penalties(
                     base_score,
                     main_series_stats,
@@ -158,10 +285,12 @@ def match_results(excel_path):
                     "sub_id": sub["id"],
                     "main_nums": main_nums,
                     "sub_nums": sub["nums"],
-                    # "distance": dist,
+                    "soft_dtw": soft_dtw,
+                    "distance": dist,
+                    "d_distance": ddist,
                     # "avg_distance": avg_dist,
                     # "base_score": base_score,
-                    "final_score": final_score,
+                    "final_score": final_score,  #直接分数
                     # "total_penalty": total_penalty,
                     # "penalties": penalties
                 })
@@ -182,39 +311,156 @@ def match_results(excel_path):
         }
     }
 
+from collections import defaultdict
+import numpy as np
 
-if __name__ == '__main__':
+def print_match_results(
+    match_results,
+    score_threshold=None,
+    sub_id_list=None,
+):
+    """
+    人类可读方式打印 match_results
 
-    excel_path = "../data/2.xlsx"
-    data = load_match_groups(excel_path)
-    match_id = "2025/05/10-161VS211-61"
-    match_data = data[match_id]
-    data = get_contour(match_data)
-    main_con = data["main"]["contour"]
-    # print(main_con)
-    results = []
+    参数：
+    - match_results : list[dict]
+    - score_threshold : 只打印 final_score >= threshold 的（可选）
+    - sub_id_list : 只打印指定 sub_id 的结果（可选，list / set）
+    """
 
-    for sub in data["subs"]:
-        # 1. 直接计算子序列与主序列的 DTW 距离
-        dist = calculate_dtw_distance(main_con, sub["contour"])
+    grouped = defaultdict(list)
 
-        # 2. 计算归一化距离（可选，消除长度影响）
-        # 归一化得分 = 距离 / (主序列长度 + 子序列长度)
-        norm_dist = dist / (len(main_con) + len(sub["contour"]))
+    # ---------- 预处理 ----------
+    sub_id_set = set(sub_id_list) if sub_id_list is not None else None
 
-        avg_dist = dist / max(len(main_con), len(sub["contour"]))
-        score = dtw_to_score(avg_dist)
+    # ---------- 分组 + 过滤 ----------
+    for r in match_results:
 
-        results.append({
-            "sub_id": sub["id"],
-            "distance": dist,
-            "norm_distance": norm_dist,
-            "score": score
-        })
+        # sub_id 过滤
+        if sub_id_set is not None and r.get("sub_id") not in sub_id_set:
+            continue
 
-    # 3. 按距离从小到大排序（最相似的在前）
-    results.sort(key=lambda x: x["norm_distance"])
+        # score 过滤
+        if score_threshold is not None:
+            if r.get("final_score") is None or r["final_score"] < score_threshold:
+                continue
 
-    # 打印结果
-    for res in results:
-        print(f"ID: {res['sub_id']} | 距离: {res['distance']:.2f} | 归一化距离: {res['norm_distance']:.4f} | 得分: {res['score']:.2f}")
+        grouped[r["match_id"]].append(r)
+
+    # ---------- 打印 ----------
+    for match_id, items in grouped.items():
+
+        # ⭐⭐⭐ 按 dist 升序排序 ⭐⭐⭐
+        items = sorted(
+            items,
+            key=lambda r: (
+                r.get("distance") is None,
+                r.get("distance", float("inf"))
+            )
+        )
+
+        print("\n" + "=" * 70)
+        print(f"MATCH {match_id}  (subs: {len(items)})")
+        print("=" * 70)
+
+        for r in items:
+            score = r.get("final_score")
+            soft = r.get("soft_dtw")
+            dist = r.get("distance")
+            d_dist = r.get("d_distance")
+
+            score_str = f"{score:.2f}" if score is not None else "None"
+            soft_str  = f"{soft:.3f}" if soft is not None else "None"
+            dist_str  = f"{dist:.3f}" if dist is not None else "None"
+            d_dist_str = f"{d_dist:.3f}" if d_dist is not None else "None"
+
+            print(
+                f"{r['sub_id']:<30} "
+                f"score={score_str:<7} "
+                f"soft_dtw={soft_str:<7} "
+                f"dist={dist_str:<7} "
+                f"d_dist={d_dist_str}"
+            )
+
+        print()
+
+if __name__ == "__main__":
+    excel_path = "../data/2n.xlsx"
+    data = match_results(excel_path)
+    sub_id_list = [
+        "2025/04/27-109VS796",
+        "2022/03/12-832VS70",
+        "2025/04/27-276VS72",
+        "2024/01/20-84VS76",
+        "2025/04/28-76VS78",
+        "2024/01/05-71VS278",
+        "2023/02/19-64VS67",
+        "2025/05/03-13VS183",
+        "2022/10/28-309VS246",
+        "2025/05/03-78VS86",
+        "2022/09/17-1501VS271",
+        "2025/05/04-84VS73",
+        "2023/04/02-29VS18",
+        "2025/05/05-2783VS51",
+        "2023/12/07-2332VS148",
+        "2023/09/02-54VS64",
+        "2022/02/19-41VS109",
+        "2025/05/10-161VS211",
+        "2022/02/26-143VS71",
+        "2025/05/10-246VS309",
+        "2023/10/29-269VS86",
+        "2025/05/11-174VS14",
+        "2023/05/20-300VS76",
+        "2025/05/11-76VS79",
+        "2023/10/07-51VS55",
+        "2025/05/11-86VS269",
+        "2023/10/28-15VS189",
+        "2025/05/13-58VS2783",
+        "2023/05/13-143VS300",
+        "2025/05/15-64VS54",
+        "2022/10/09-47VS50",
+        "2025/05/18-29VS174",
+        "2022/05/06-278VS87",
+        "2025/05/18-55VS53",
+        "2022/10/09-41VS796",
+        "2025/05/25-165VS29",
+        "2024/05/10-60VS2783"
+    ]
+    print_match_results(data["results"],0)
+
+
+# if __name__ == '__main__':
+#
+#     excel_path = "../data/2.xlsx"
+#     data = load_match_groups(excel_path)
+#     match_id = "2025/05/10-161VS211-61"
+#     match_data = data[match_id]
+#     data = get_contour(match_data)
+#     main_con = data["main"]["contour"]
+#     # print(main_con)
+#     results = []
+#
+#     for sub in data["subs"]:
+#         # 1. 直接计算子序列与主序列的 DTW 距离
+#         dist = calculate_dtw_distance(main_con, sub["contour"])
+#
+#         # 2. 计算归一化距离（可选，消除长度影响）
+#         # 归一化得分 = 距离 / (主序列长度 + 子序列长度)
+#         norm_dist = dist / (len(main_con) + len(sub["contour"]))
+#
+#         avg_dist = dist / max(len(main_con), len(sub["contour"]))
+#         score = dtw_to_score(avg_dist)
+#
+#         results.append({
+#             "sub_id": sub["id"],
+#             "distance": dist,
+#             "norm_distance": norm_dist,
+#             "score": score
+#         })
+#
+#     # 3. 按距离从小到大排序（最相似的在前）
+#     results.sort(key=lambda x: x["norm_distance"])
+#
+#     # 打印结果
+#     for res in results:
+#         print(f"ID: {res['sub_id']} | 距离: {res['distance']:.2f} | 归一化距离: {res['norm_distance']:.4f} | 得分: {res['score']:.2f}")

@@ -61,15 +61,16 @@ def trend_sign(x, eps=1e-3):
         return -1
     return 0
 
-
-def penalty_trend(cont_main, cont_sub, head_n=3, tail_n=10, tol=2, scale=7):
+# 趋势惩罚 后半段走势最后一两个符号忽略
+def penalty_trend(cont_main, cont_sub, head_n=0, tail_n=10, tol=5, scale=7):
+    # param:3 10 2
     # --- 1. 趋势一致性计算 (原有逻辑) ---
     h_a, h_b = cont_main[:head_n], cont_sub[:head_n]
     sh_a = np.array([trend_sign(x) for x in h_a])
     sh_b = np.array([trend_sign(x) for x in h_b])
     mismatch_head = int(np.sum(sh_a != sh_b))
 
-    t_a, t_b = cont_main[-tail_n:], cont_sub[-tail_n:]
+    t_a, t_b = cont_main[-tail_n-1:], cont_sub[-tail_n-1:]
     st_a = np.array([trend_sign(x) for x in t_a])
     st_b = np.array([trend_sign(x) for x in t_b])
     mismatch_tail = int(np.sum(st_a != st_b))

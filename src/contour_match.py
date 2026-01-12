@@ -43,6 +43,37 @@ def get_contour(match_data, window=3):
         },
         "subs": subs_output
     }
+def split_series(x, n=3):
+    L = len(x)
+    idx = [int(i * L / n) for i in range(n)] + [L]
+    return [x[idx[i]:idx[i+1]] for i in range(n)]
+def segmented_dtw(main, sub):
+    main_segs = split_series(main, 3)
+    sub_segs  = split_series(sub, 3)
+
+    dists = []
+    for m, s in zip(main_segs, sub_segs):
+        if len(m) > 0 and len(s) > 0:
+            d = calculate_dtw_distance(m, s)
+            d /= max(len(m), len(s))   # 归一化
+            dists.append(d)
+
+    return np.mean(dists)
+
+def segmented_dtw_w(main, sub):
+    main_segs = split_series(main, 3)
+    sub_segs  = split_series(sub, 3)
+
+    weights = [0.2, 0.3, 0.5]
+    dists = []
+
+    for (m, s, w) in zip(main_segs, sub_segs, weights):
+        if len(m) and len(s):
+            d = calculate_dtw_distance(m, s)
+            d /= max(len(m), len(s))
+            dists.append(w * d)
+
+    return sum(dists)
 # DTW 可以灵活拉伸 / 压缩其中一个序列
 def calculate_dtw_distance(s1, s2):
     """
@@ -105,10 +136,13 @@ def match_results(excel_path):
             for sub in contour_data["subs"]:
                 total_sub_count += 1
 
-                dist = calculate_dtw_distance(main_con, sub["contour"])
-                avg_dist = dist / max(len(main_con), len(sub["contour"]))
-                base_score = dtw_to_score(avg_dist)
+                # dist = calculate_dtw_distance(main_con, sub["contour"])
+                dist = segmented_dtw_w(main_con, sub["contour"])
 
+                # avg_dist = dist / max(len(main_con), len(sub["contour"]))
+
+                # base_score = dtw_to_score(avg_dist)
+                base_score = dtw_to_score(dist)
                 sub_series_stats = series_stats(sub["series"])
 
                 final_score, penalties, total_penalty = apply_penalties(

@@ -127,37 +127,7 @@ def get_contour(match_data, window=3):
         },
         "subs": subs_output
     }
-def split_series(x, n=3):
-    L = len(x)
-    idx = [int(i * L / n) for i in range(n)] + [L]
-    return [x[idx[i]:idx[i+1]] for i in range(n)]
-def segmented_dtw(main, sub):
-    main_segs = split_series(main, 3)
-    sub_segs  = split_series(sub, 3)
 
-    dists = []
-    for m, s in zip(main_segs, sub_segs):
-        if len(m) > 0 and len(s) > 0:
-            d = calculate_dtw_distance(m, s)
-            d /= max(len(m), len(s))   # 归一化
-            dists.append(d)
-
-    return np.mean(dists)
-
-def segmented_dtw_w(main, sub):
-    main_segs = split_series(main, 3)
-    sub_segs  = split_series(sub, 3)
-
-    weights = [0.2, 0.3, 0.5]
-    dists = []
-
-    for (m, s, w) in zip(main_segs, sub_segs, weights):
-        if len(m) and len(s):
-            d = calculate_dtw_distance(m, s)
-            d /= max(len(m), len(s))
-            dists.append(w * d)
-
-    return sum(dists)
 # DTW 可以灵活拉伸 / 压缩其中一个序列
 def calculate_dtw_distance(s1, s2):
     """
@@ -189,50 +159,82 @@ def dtw_to_score(avg_dist, scale=20.0):
     score = 100 * np.exp(-avg_dist / scale)
     return float(score)
 
-def derivative_dtw_distance(
-    main,
-    sub,
-    tail_ratio=1,
-    dtw_func=None,
+def derivative(x):
+    """
+    Keogh-style derivative for DDTW
+    """
+    x = np.asarray(x, dtype=np.float32)
+    if len(x) < 3:
+        return np.zeros_like(x)
+
+    d = np.zeros_like(x)
+    for i in range(1, len(x) - 1):
+        d[i] = (
+            (x[i] - x[i - 1]) +
+            (x[i + 1] - x[i - 1]) / 2
+        ) / 2
+
+    return d
+
+def sliding_tail_ddtw(
+    main_series,
+    sub_series,
+    tail_ratio_main=0.4,
+    sub_ratio_range=(0.3, 0.5),
+    sub_ratio_step=0.02,
 ):
     """
-    Derivative-DTW distance（只算后半段趋势）
-
-    参数：
-    - main, sub: np.ndarray
-    - tail_ratio: 只看后多少比例
-    - dtw_func: 你已有的 DTW 函数
+    Right-aligned sliding-tail DDTW
+    - 右端点固定
+    - 只滑动左端点
     """
 
-    assert dtw_func is not None
+    main = np.asarray(main_series, dtype=np.float32)
+    sub  = np.asarray(sub_series, dtype=np.float32)
 
-    n = min(len(main), len(sub))
-    if n < 5:
-        return np.inf
+    N, M = len(main), len(sub)
+    if N < 10 or M < 10:
+        return np.inf, None
 
-    start = int(n * (1 - tail_ratio))
-    main_tail = main[start:]
-    sub_tail  = sub[start:]
+    # ---------- main 尾部（固定） ----------
+    main_len = int(N * tail_ratio_main)
+    if main_len < 5:
+        return np.inf, None
 
-    # 1️⃣ 导数
-    d_main = np.diff(main_tail)
-    d_sub  = np.diff(sub_tail)
+    main_tail = main[-main_len:]
+    main_d = derivative(main_tail)
 
-    # 长度保护
-    if len(d_main) < 3 or len(d_sub) < 3:
-        return np.inf
+    best_dist = np.inf
+    best_cfg = None
 
-    # 2️⃣ DTW on derivative
-    dist = dtw_func(d_main, d_sub)
+    # ---------- sub：右对齐，左端滑动 ----------
+    for r in np.arange(sub_ratio_range[0], sub_ratio_range[1] + 1e-6, sub_ratio_step):
+        sub_len = int(M * r)
 
-    # 3️⃣ 归一化（可选但推荐）
-    norm = max(len(d_main), len(d_sub))
-    return dist / norm
+        if sub_len < 5:
+            continue
+
+        sub_tail = sub[-sub_len:]   # 右端点固定
+        sub_d = derivative(sub_tail)
+
+        dist = calculate_dtw_distance(main_d, sub_d)
+
+        if dist < best_dist:
+            best_dist = dist
+            best_cfg = {
+                "main_len": main_len,
+                "sub_len": sub_len,
+                "sub_ratio": round(r, 3),
+            }
+
+    return best_dist, best_cfg
+
 # 输出匹配后的评分结果，计算得分
 def match_results(excel_path):
 
     # 1. 加载所有比赛分组数据
     raw_data = load_match_groups(excel_path)
+    # data = load_match_groups(excel_path)
     # 对源数据预处理
     data, stats = preprocess_data(raw_data)
 
@@ -262,7 +264,7 @@ def match_results(excel_path):
                 total_sub_count += 1
 
                 dist = calculate_dtw_distance(main_con, sub["contour"])
-                ddist = derivative_dtw_distance(main_con, sub["contour"],dtw_func = calculate_dtw_distance)
+                ddist, _ = sliding_tail_ddtw(main_con, sub["contour"])
                 # dist = segmented_dtw_w(main_con, sub["contour"])
 
                 avg_dist = dist / max(len(main_con), len(sub["contour"]))
@@ -379,7 +381,8 @@ def print_match_results(
                 f"score={score_str:<7} "
                 f"soft_dtw={soft_str:<7} "
                 f"dist={dist_str:<7} "
-                f"d_dist={d_dist_str}"
+                f"d_dist={d_dist_str:<7}"
+                # f"sum={d_dist+d_dist:<5}"
             )
 
         print()

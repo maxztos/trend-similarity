@@ -22,5 +22,8 @@ dataloader、contour_match、scoring、main
 
 
 d_dist
-r = 1
-max 20.6
+
+--	+-
+
+c组 0.6以上 以下不取
+

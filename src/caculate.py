@@ -180,28 +180,54 @@ def generate_nums(results, threshold=45):
         # =====================================================
         if k == 1:
             for i in (4, 5, 6):
-                if sub[0, i] > 0:
+                # if main[i] <= 0.6:
+                #     continue
+                if sub[0, i] > 1.1:
                     new[i] = main[i]
                     break
 
         elif k == 2:
             for i in (4, 5, 6):
+                # if main[i] <= 0.6:
+                #     continue
                 if not sign_conflict(sub[:, i]):
-                    if sub[0, i] > 0:
+                    if sub[0, i] > 1.1:
                         new[i] = main[i]
                         break
-
         else:
             pos_counts = []
+            valid_idx = []
+
             for i in (4, 5, 6):
+                # if main[i] <= 0.6:
+                #     continue
+
                 v = sub[:, i]
                 v = v[v != 0]
-                pos_counts.append(np.sum(v > 0))
 
-            max_pos = max(pos_counts)
-            if max_pos > 0 and pos_counts.count(max_pos) == 1:
-                idx = pos_counts.index(max_pos)
-                new[4 + idx] = main[4 + idx]
+                if len(v) == 0:
+                    continue
+
+                pos_counts.append(np.sum(v > 0))
+                valid_idx.append(i)
+
+            if pos_counts:
+                best_i = valid_idx[np.argmax(pos_counts)]
+                new[best_i] = main[best_i]
+
+        # else:
+        #     pos_counts = []
+        #     for i in (4, 5, 6):
+        #         if main[i] <= 0.6:
+        #             continue
+        #         v = sub[:, i]
+        #         v = v[v != 0]
+        #         pos_counts.append(np.sum(v > 0))
+        #
+        #     max_pos = max(pos_counts)
+        #     if max_pos > 0 and pos_counts.count(max_pos) == 1:
+        #         idx = pos_counts.index(max_pos)
+        #         new[4 + idx] = main[4 + idx]
 
         processed.append({
             "match_id": match_id,
@@ -307,8 +333,6 @@ def generate_nums_old1(results, threshold=45):
         })
 
     return processed
-
-
 
 
 def generate_nums_old(results, threshold=45):
@@ -500,14 +524,10 @@ def print_match_results(results, processed, threshold=48):
 
 
 if __name__ == '__main__':
-    excel_path= "../data/3n.xlsx"
+    excel_path = "../data/3n.xlsx"
     results = match_results(excel_path)
     # print(results)
-    processed = generate_nums(results["results"], threshold=50)
-
-    # print_match_results(results["results"], processed, threshold=0)
-    # print(processed)
-    # stats = aggregate_new_nums_grouped(processed)
+    processed = generate_nums(results["results"], threshold=52.0)
     stats = aggregate_new_nums_single(processed)
 
     labels = ["a11", "a22", "b11", "b22", "c11", "c22", "c33"]

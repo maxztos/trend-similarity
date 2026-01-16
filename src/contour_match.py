@@ -255,7 +255,7 @@ def match_results(excel_path):
             # 获取轮廓数据
             contour_data = get_contour(match_data)
 
-            main_con = contour_data["main"]["contour"]
+            main_con = contour_data["main"]["contour"] #
             main_series = contour_data["main"]["series"]
             main_series_stats = series_stats(main_series)
 

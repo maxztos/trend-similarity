@@ -215,6 +215,7 @@ def generate_nums(results, threshold=45):
                 best_i = valid_idx[np.argmax(pos_counts)]
                 new[best_i] = main[best_i]
 
+
         # else:
         #     pos_counts = []
         #     for i in (4, 5, 6):

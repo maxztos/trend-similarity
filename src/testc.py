@@ -2,11 +2,13 @@ import numpy as np
 
 from src.caculate import aggregate_new_nums_single, generate_nums
 from src.contour_match import match_results
+from src.ncc_match import ncc_match_results
 
 excel_path = "../data/3n.xlsx"
-results = match_results(excel_path)
+# results = match_results(excel_path)
+results = ncc_match_results(excel_path)
 
-for th in np.arange(30.0, 60.0 + 1e-6, 1):
+for th in np.arange(75.0, 86.0 + 1e-6, 1):
     th = round(th, 1)
 
     processed = generate_nums(results["results"], threshold=th)

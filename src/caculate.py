@@ -1,6 +1,8 @@
 import numpy as np
 
 from src.contour_match import match_results
+from src.ncc_match import ncc_match_results
+
 
 def vote_pair_k_ge_3(v1, v2):
     """
@@ -104,9 +106,9 @@ def generate_nums(results, threshold=45):
 
     grouped = defaultdict(list)
 
-    # ---- 分组 + 阈值过滤 ----
+    # ---- 分组 + 阈值过滤 ----  用ncc改成score1
     for r in results:
-        if isinstance(r, dict) and r.get("final_score") is not None and r["final_score"] >= threshold:
+        if isinstance(r, dict) and r.get("final_score1") is not None and r["final_score1"] >= threshold:
             grouped[r["match_id"]].append(r)
 
     processed = []
@@ -526,9 +528,11 @@ def print_match_results(results, processed, threshold=48):
 
 if __name__ == '__main__':
     excel_path = "../data/3n.xlsx"
-    results = match_results(excel_path)
-    # print(results)
-    processed = generate_nums(results["results"], threshold=52.0)
+    # results = match_results(excel_path)
+    results = ncc_match_results(excel_path)
+
+    print(results)
+    processed = generate_nums(results["results"], threshold=74.0)
     stats = aggregate_new_nums_single(processed)
 
     labels = ["a11", "a22", "b11", "b22", "c11", "c22", "c33"]

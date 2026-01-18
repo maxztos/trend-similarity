@@ -128,6 +128,22 @@ def get_contour(match_data, window=3):
         "subs": subs_output
     }
 
+
+def split_contour(contour: np.ndarray):
+    """
+    将轮廓拆成上下两条：
+    - upper: 正值保留，负值置 0
+    - lower: 负值保留，正值置 0
+
+    返回:
+        upper_contour, lower_contour
+    """
+    contour = np.asarray(contour, dtype=float)
+
+    upper = np.where(contour >= 0, contour, 0.0)
+    lower = np.where(contour <= 0, contour, 0.0)
+
+    return upper, lower
 # DTW 可以灵活拉伸 / 压缩其中一个序列
 def calculate_dtw_distance(s1, s2):
     """
@@ -151,6 +167,76 @@ def calculate_dtw_distance(s1, s2):
 
     return dtw_matrix[n, m]
 
+def ncc(main_con, sub_con, max_lag=10, lag_penalty=0.0, eps=1e-8):
+    """Max-NCC(最大滞后归一化互相关) 相似度分数：0~100，越大越相似。
+
+    设计为可以直接与 main.py 的 contour 对接：
+        base_score1 = ncc(main_con, sub["contour"], max_lag=10)
+
+    参数
+    ----
+    main_con, sub_con : array-like
+        contour 序列（通常是 extract_signed_area_contour 的输出）
+    max_lag : int
+        允许左右平移的最大步数，用于处理整体“早到/晚到”
+    lag_penalty : float
+        每偏移 1 步的扣分（0 表示不扣），可用于偏好“无需平移也相似”的匹配
+    eps : float
+        数值稳定项
+    """
+
+    a = np.asarray(main_con, dtype=float)
+    b = np.asarray(sub_con, dtype=float)
+
+    n = min(len(a), len(b))
+    if n < 3:
+        return 0.0
+
+    # 与 main.py 当前 DTW 用法一致：先截断到同长度
+    a = a[:n]
+    b = b[:n]
+
+    # z-score 标准化，减少绝对高度/振幅差异对相关性的影响
+    a_mu, a_sd = float(np.mean(a)), float(np.std(a))
+    b_mu, b_sd = float(np.mean(b)), float(np.std(b))
+
+    # 近似“平线”时，走势信息不足：给中性偏低分
+    if a_sd < eps or b_sd < eps:
+        return 50.0
+
+    a = (a - a_mu) / (a_sd + eps)
+    b = (b - b_mu) / (b_sd + eps)
+
+    best_corr = -1.0
+    best_lag = 0
+
+    for lag in range(-int(max_lag), int(max_lag) + 1):
+        if lag < 0:
+            aa = a[-lag:]
+            bb = b[: n + lag]
+        elif lag > 0:
+            aa = a[: n - lag]
+            bb = b[lag:]
+        else:
+            aa = a
+            bb = b
+
+        if len(aa) < 3:
+            continue
+
+        # a,b 已标准化，dot/(len-1) 近似 Pearson corr
+        corr = float(np.dot(aa, bb) / (len(aa) - 1))
+        if corr > best_corr:
+            best_corr = corr
+            best_lag = lag
+
+    best_corr = max(-1.0, min(1.0, best_corr))
+
+    # corr [-1,1] -> score [0,100]
+    score = (best_corr + 1.0) * 50.0
+    score -= float(lag_penalty) * abs(int(best_lag))
+
+    return float(max(0.0, min(100.0, score)))
 def dtw_to_score(avg_dist, scale=20.0):
     """
     avg_dist: DTW 每步平均距离
@@ -313,6 +399,99 @@ def match_results(excel_path):
         }
     }
 
+def match_results_up_low(excel_path):
+
+    # 1. 加载所有比赛分组数据
+    raw_data = load_match_groups(excel_path)
+    # data = load_match_groups(excel_path)
+    # 对源数据预处理
+    data, stats = preprocess_data(raw_data)
+
+    all_results = []          # 存所有 sub 的评分结果
+    match_count = 0           # match_id 数量
+    total_sub_count = 0       # sub 总数
+
+    # 2. 遍历所有 match_id
+    for match_id, match_data in data.items():
+        try:
+            match_count += 1
+
+            if match_data["main"] is None:
+                continue
+
+            main_nums = match_data["main"]["nums"]
+
+            # 获取轮廓数据
+            contour_data = get_contour(match_data)
+
+            main_con = contour_data["main"]["contour"] #
+            main_series = contour_data["main"]["series"]
+            main_series_stats = series_stats(main_series)
+
+            main_up_con, main_low_con = split_contour(main_con)
+
+            # 3. 遍历所有子序列（不选 best，全记录）
+            for sub in contour_data["subs"]:
+                total_sub_count += 1
+                up_contour, low_contour = split_contour(sub["contour"])
+                dist = calculate_dtw_distance(main_con, sub["contour"])
+                up_dist = calculate_dtw_distance(main_up_con, up_contour)
+                low_dist = calculate_dtw_distance(main_low_con, low_contour)
+
+                # ddist, _ = sliding_tail_ddtw(main_con, sub["contour"])
+                # dist = segmented_dtw_w(main_con, sub["contour"])
+
+                # avg_dist = dist / max(len(main_con), len(sub["contour"]))
+                up_avg_dist = up_dist / max(len(main_up_con), len(up_contour))
+                low_avg_dist = low_dist / max(len(main_low_con), len(low_contour))
+
+                up_contour, low_contour = split_contour(sub["contour"])
+
+                # base_score = dtw_to_score(avg_dist)
+                up_score = dtw_to_score(up_avg_dist)
+                low_score = dtw_to_score(low_avg_dist)
+                # base_score = dtw_to_score(dist)
+                sub_series_stats = series_stats(sub["series"])
+
+                soft_dtw, sdist= soft_dtw_tail_score(main_con, sub["series"])
+                # final_score, penalties, total_penalty = apply_penalties(
+                #     base_score,
+                #     main_series_stats,
+                #     sub_series_stats,
+                #     main_con,
+                #     sub["contour"],
+                # )
+
+                all_results.append({
+                    "match_id": match_id,
+                    "sub_id": sub["id"],
+                    "main_nums": main_nums,
+                    "sub_nums": sub["nums"],
+                    "distance": dist,
+                    # "avg_distance": avg_dist,
+                    # "base_score": base_score,
+                    # "final_score": final_score,  #直接分数
+                    "up_score": up_score,
+                    "low_score": low_score,
+                    # "total_penalty": total_penalty,
+                    # "penalties": penalties
+                })
+
+        except Exception:
+            # 单个 match 出问题，不影响整体
+            continue
+
+    # 4. 只输出总体统计
+    print(f"Processed match count: {match_count}")
+    print(f"Total sub entries processed: {total_sub_count}")
+
+    return {
+        "results": all_results,
+        "stats": {
+            "match_count": match_count,
+            "total_sub_count": total_sub_count
+        }
+    }
 from collections import defaultdict
 import numpy as np
 
@@ -387,9 +566,77 @@ def print_match_results(
 
         print()
 
+def print_match_results_ul(
+    match_results,
+    score_threshold=None,
+    sub_id_list=None,
+):
+    """
+    人类可读方式打印 match_results
+
+    参数：
+    - match_results : list[dict]
+    - score_threshold : 只打印 final_score >= threshold 的（可选）
+    - sub_id_list : 只打印指定 sub_id 的结果（可选，list / set）
+    """
+
+    grouped = defaultdict(list)
+
+    # ---------- 预处理 ----------
+    sub_id_set = set(sub_id_list) if sub_id_list is not None else None
+
+    # ---------- 分组 + 过滤 ----------
+    for r in match_results:
+
+        # sub_id 过滤
+        if sub_id_set is not None and r.get("sub_id") not in sub_id_set:
+            continue
+
+        # score 过滤
+        if score_threshold is not None:
+            if r.get("up_score") is None or r["up_score"] < score_threshold:
+                continue
+
+        grouped[r["match_id"]].append(r)
+
+    # ---------- 打印 ----------
+    for match_id, items in grouped.items():
+
+        # ⭐⭐⭐ 按 dist 升序排序 ⭐⭐⭐
+        items = sorted(
+            items,
+            key=lambda r: (
+                r.get("distance") is None,
+                r.get("distance", float("inf"))
+            )
+        )
+
+        print("\n" + "=" * 70)
+        print(f"MATCH {match_id}  (subs: {len(items)})")
+        print("=" * 70)
+
+        for r in items:
+            up_score = r.get("up_score")
+            low_score = r.get("low_score")
+            soft = r.get("soft_dtw")
+            dist = r.get("distance")
+
+            up_score_str = f"{up_score:.2f}" if up_score is not None else "None"
+            low_score_str = f"{low_score:.2f}" if low_score is not None else "None"
+            dist_str  = f"{dist:.3f}" if dist is not None else "None"
+
+            print(
+                f"{r['sub_id']:<30} "
+                f"up_score={up_score_str:<7} "
+                f"low_score={low_score_str:<7} "
+                f"dist={dist_str:<7} "
+                # f"sum={d_dist+d_dist:<5}"
+            )
+
+        print()
 if __name__ == "__main__":
     excel_path = "../data/2n.xlsx"
-    data = match_results(excel_path)
+    data = match_results_up_low(excel_path)
     sub_id_list = [
         "2025/04/27-109VS796",
         "2022/03/12-832VS70",
@@ -429,7 +676,7 @@ if __name__ == "__main__":
         "2025/05/25-165VS29",
         "2024/05/10-60VS2783"
     ]
-    print_match_results(data["results"],0)
+    print_match_results_ul(data["results"],0)
 
 
 # if __name__ == '__main__':

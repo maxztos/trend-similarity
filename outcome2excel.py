@@ -9,7 +9,7 @@ def write_scores_to_excel_v2(
     excel_path,
     results,
     out_path=None,
-    score_col="final_score",
+    score_col="final_score", # 改p
     flag_col="xianshi",
     threshold=50
 ):
@@ -27,7 +27,7 @@ def write_scores_to_excel_v2(
     # 只保留需要字段
     res_df = res_df[["match_id", "sub_id", "final_score"]]
 
-    # 3. merge（关键点在这里）
+    # 3. merge          （关键点在这里）  改matchid的地方
     df = df.merge(
         res_df,
         left_on=["match_id1", "match_id2"],
@@ -41,6 +41,9 @@ def write_scores_to_excel_v2(
     # 5. xianshi 标志
     df[flag_col] = (df[score_col] >= threshold).astype(int)
 
+    # df[type]  =  0
+    # 设置score列空值为0
+    # df[score_col] = is.nan(nan,0)
     # 6. 输出
     if out_path is None:
         out_path = excel_path.replace(".xlsx", "_with_score.xlsx")
@@ -55,9 +58,7 @@ def write_scores_to_excel_v2(
 
 
 if __name__ == "__main__":
-    excel_path = "../data/3n.xlsx"
-    data = match_results(excel_path)
-    print(data)
+    excel_path = "data/2n.xlsx"
     ret = match_results(excel_path)
     results = ret["results"]
 

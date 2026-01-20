@@ -378,7 +378,7 @@ def match_results(excel_path):
                     "d_distance": ddist,
                     # "avg_distance": avg_dist,
                     # "base_score": base_score,
-                    "final_score": final_score,  #直接分数
+                    "final_score": final_score,  #直接分数   改成p
                     # "total_penalty": total_penalty,
                     # "penalties": penalties
                 })

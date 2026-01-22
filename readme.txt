@@ -74,5 +74,5 @@ a、b、c的计算
 2、 #### 所有的主数据        p = 0 , xianshi = 1    2n  无空值 主数据xianshi=1
 
 3、 ##### [改match_id]
-原来：每个match match_id1     =>     match_id_2
-    每条数据的id match_id2       =>      match_id
+match_id1 名称改为   match_id_2
+match_id2   名称改为   match_id

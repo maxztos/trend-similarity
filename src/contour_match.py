@@ -10,7 +10,8 @@ from tslearn.metrics import soft_dtw
 def soft_dtw_tail_score(
     main,
     sub,
-    tail_ratio=0.7,
+    tail_ratio=0.7
+        ,
     gamma=0.5,
     temperature=1.0,
     eps=1e-6,
@@ -378,7 +379,7 @@ def match_results(excel_path):
                     "d_distance": ddist,
                     # "avg_distance": avg_dist,
                     # "base_score": base_score,
-                    "final_score": final_score,  #直接分数   改成p
+                    "p": final_score,  #直接分数   改成p
                     # "total_penalty": total_penalty,
                     # "penalties": penalties
                 })
@@ -523,7 +524,7 @@ def print_match_results(
 
         # score 过滤
         if score_threshold is not None:
-            if r.get("final_score") is None or r["final_score"] < score_threshold:
+            if r.get("p") is None or r["p"] < score_threshold:
                 continue
 
         grouped[r["match_id"]].append(r)
@@ -545,7 +546,7 @@ def print_match_results(
         print("=" * 70)
 
         for r in items:
-            score = r.get("final_score")
+            score = r.get("p")
             soft = r.get("soft_dtw")
             dist = r.get("distance")
             d_dist = r.get("d_distance")

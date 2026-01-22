@@ -68,7 +68,7 @@ describe:提取Excel中的数据，封装成group变量
 """
 def load_match_groups(excel_path):
     df = pd.read_excel(excel_path)
-
+    df = df.rename(columns={'match_id_2': 'match_id1', 'match_id': 'match_id2'})
     groups = defaultdict(lambda: {
         "main": None,
         "subs": []
@@ -79,7 +79,7 @@ def load_match_groups(excel_path):
         entry = {
             "id": row["match_id2"],
             "series": parse_s6(row["s6"]),
-            "nums": np.array([row[col] for col in NUM_COLS], dtype=np.float32)
+            "nums":np.array([row[col] for col in NUM_COLS], dtype=np.float32)
         }
 
         if row["Type"].lower() == "主数据":
@@ -94,7 +94,7 @@ def load_match_groups(excel_path):
 
 if __name__ == '__main__':
 
-    excel_path = "../../data/2.xlsx"
+    excel_path = "../../data/3.xlsx"
     groups = load_match_groups(excel_path)
     print(groups)
 

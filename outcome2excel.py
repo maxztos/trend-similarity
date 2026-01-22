@@ -9,7 +9,7 @@ def write_scores_to_excel_v2(
     excel_path,
     results,
     out_path=None,
-    score_col="final_score", # 改p
+    score_col="p", # 改p
     flag_col="xianshi",
     threshold=50
 ):
@@ -20,12 +20,12 @@ def write_scores_to_excel_v2(
 
     # 1. 读取原始 Excel
     df = pd.read_excel(excel_path)
-
+    df = df.rename(columns={'match_id_2': 'match_id1', 'match_id': 'match_id2'})
     # 2. 结果转 DataFrame
     res_df = pd.DataFrame(results)
 
     # 只保留需要字段
-    res_df = res_df[["match_id", "sub_id", "final_score"]]
+    res_df = res_df[["match_id", "sub_id", "p"]]
 
     # 3. merge          （关键点在这里）  改matchid的地方
     df = df.merge(
@@ -38,13 +38,19 @@ def write_scores_to_excel_v2(
     # 4. 删除多余字段（可选，但强烈建议）
     df.drop(columns=["match_id", "sub_id"], inplace=True)
 
+    # 设置score列空值为0
+    df["p"] = df["p"].fillna(0)  # 将NaN填充为0
+
     # 5. xianshi 标志
     df[flag_col] = (df[score_col] >= threshold).astype(int)
 
-    # df[type]  =  0
-    # 设置score列空值为0
-    # df[score_col] = is.nan(nan,0)
-    # 6. 输出
+    # 6. 【新增】将 Type="主数据" 的所有行的 flag_col 强制设置为 1
+    df.loc[df["Type"] == "主数据", flag_col] = 1
+
+    # 7. 重命名列：将match_id1改为match_id_2，将match_id2改为match_id
+    df.rename(columns={'match_id1': 'match_id_2', 'match_id2': 'match_id'}, inplace=True)
+
+    # 8. 输出
     if out_path is None:
         out_path = excel_path.replace(".xlsx", "_with_score.xlsx")
 
@@ -58,7 +64,7 @@ def write_scores_to_excel_v2(
 
 
 if __name__ == "__main__":
-    excel_path = "data/2n.xlsx"
+    excel_path = "data/3p.xlsx"
     ret = match_results(excel_path)
     results = ret["results"]
 
